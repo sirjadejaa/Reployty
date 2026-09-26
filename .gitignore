@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Diagnostic / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build & Dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+tsconfig.tsbuildinfo
+
+# Environment variables & secrets (NEVER commit secrets!)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+cookie.txt
+
+# Database dumps and backups
+*.sql
+*.dump
+*.tar
+*.bak
+backups/
+
+# Test coverage & artifacts
+coverage/
+.tempmediaStorage/

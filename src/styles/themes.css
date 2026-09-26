@@ -1,0 +1,89 @@
+/**
+ * Reployty Theme Engine Foundation
+ * Controlled theme tokens for business categories and tenant customization.
+ * Never allows arbitrary CSS injection.
+ */
+
+/* Default Base Reployty Theme */
+:root, [data-category-theme="default"] {
+  --theme-primary: #4F6BFF;
+  --theme-primary-hover: #3E56E2;
+  --theme-primary-subtle: #EEF2FF;
+  --theme-secondary: #111827;
+  --theme-accent: #2563EB;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #E2E8F0;
+  --theme-radius: 12px;
+}
+
+/* Category: Café (Warm, coffee-inspired, welcoming) */
+[data-category-theme="cafe"] {
+  --theme-primary: #B45309;
+  --theme-primary-hover: #92400E;
+  --theme-primary-subtle: #FEF3C7;
+  --theme-secondary: #78350F;
+  --theme-accent: #D97706;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #FDE68A;
+  --theme-radius: 12px;
+}
+
+/* Category: Restaurant (Elegant, food-focused, premium) */
+[data-category-theme="restaurant"] {
+  --theme-primary: #BE123C;
+  --theme-primary-hover: #9F1239;
+  --theme-primary-subtle: #FFE4E6;
+  --theme-secondary: #881337;
+  --theme-accent: #E11D48;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #FECDD3;
+  --theme-radius: 12px;
+}
+
+/* Category: Salon & Spa (Clean, beauty-focused, elegant) */
+[data-category-theme="salon"] {
+  --theme-primary: #DB2777;
+  --theme-primary-hover: #BE185D;
+  --theme-primary-subtle: #FCE7F3;
+  --theme-secondary: #9D174D;
+  --theme-accent: #EC4899;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #FBCFE8;
+  --theme-radius: 14px;
+}
+
+/* Category: Gym & Fitness (Energetic, athletic, clean) */
+[data-category-theme="gym"] {
+  --theme-primary: #0D9488;
+  --theme-primary-hover: #0F766E;
+  --theme-primary-subtle: #CCFBF1;
+  --theme-secondary: #115E59;
+  --theme-accent: #14B8A6;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #99F6E4;
+  --theme-radius: 10px;
+}
+
+/* Category: Gamezone & Entertainment (Playful, controlled) */
+[data-category-theme="gamezone"] {
+  --theme-primary: #7C3AED;
+  --theme-primary-hover: #6D28D9;
+  --theme-primary-subtle: #EDE9FE;
+  --theme-secondary: #5B21B6;
+  --theme-accent: #8B5CF6;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #DDD6FE;
+  --theme-radius: 14px;
+}
+
+/* Category: Retail & Fashion (Modern, editorial, stylish) */
+[data-category-theme="retail"] {
+  --theme-primary: #2563EB;
+  --theme-primary-hover: #1D4ED8;
+  --theme-primary-subtle: #DBEAFE;
+  --theme-secondary: #1E3A8A;
+  --theme-accent: #3B82F6;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #BFDBFE;
+  --theme-radius: 8px;
+}

@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Primary Web & API Application Server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - APP_URL=https://app.reployty.com
+      - DATABASE_URL=postgresql://reployty_user:reployty_secure_pass@postgres:5432/reployty?schema=public
+      - REDIS_URL=redis://redis:6379
+      - ALLOWED_ORIGINS=https://app.reployty.com
+      - BILLING_WEBHOOK_SECRET=reployty_billing_webhook_secret_2026
+      - ALLOW_PRODUCTION_BOOTSTRAP=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - reployty-network
+
+  # Production PostgreSQL 16 Database
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reployty_user
+      POSTGRES_PASSWORD: reployty_secure_pass
+      POSTGRES_DB: reployty
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reployty_user -d reployty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reployty-network
+
+  # Distributed Redis 7 Cache & Rate Limiting
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - reployty-network
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  reployty-network:
+    driver: bridge

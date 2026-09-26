@@ -1,0 +1,1234 @@
+// Reployty Production Multi-Tenant Prisma Schema
+// Provider: PostgreSQL
+// Source of Truth for Data Architecture (Prompt 2)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum BusinessCategory {
+  CAFE
+  RESTAURANT
+  SALON
+  GYM
+  GAMEZONE
+  RETAIL
+  OTHER
+}
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  ARCHIVED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  VIP
+  AT_RISK
+  BLOCKED
+}
+
+enum ConsentChannel {
+  MARKETING
+  WHATSAPP
+  SMS
+  EMAIL
+  NOTIFICATIONS
+}
+
+enum CustomerEventType {
+  CUSTOMER_JOINED
+  VISIT_RECORDED
+  PURCHASE_RECORDED
+  STAMP_ADDED
+  POINTS_ADDED
+  REWARD_EARNED
+  REWARD_REDEEMED
+  OFFER_REDEEMED
+  REVIEW_REQUESTED
+  REVIEW_GENERATED
+  CUSTOMER_BECAME_VIP
+  CUSTOMER_BECAME_AT_RISK
+  CUSTOMER_BECAME_INACTIVE
+  CUSTOMER_REACTIVATED
+}
+
+enum LoyaltyType {
+  STAMP
+  POINTS
+  MILESTONE
+  PRODUCT_REWARD
+}
+
+enum ProgramStatus {
+  ACTIVE
+  PAUSED
+  DRAFT
+  ARCHIVED
+}
+
+enum SegmentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum CardStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum LoyaltyTransactionType {
+  STAMP_ADDED
+  STAMP_REMOVED
+  POINTS_EARNED
+  POINTS_REVERSED
+  MILESTONE_REACHED
+  ADJUSTMENT
+  STAMP_REDEEMED
+  POINTS_REDEEMED
+}
+
+enum RewardStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum RedemptionStatus {
+  AVAILABLE
+  CLAIMED
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum OfferType {
+  PERCENTAGE_DISCOUNT
+  FIXED_DISCOUNT
+  FREE_PRODUCT
+  FREE_SERVICE
+  BUY_X_GET_Y
+  BIRTHDAY
+  COMEBACK
+  VIP
+  MILESTONE
+}
+
+enum OfferStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  DRAFT
+}
+
+enum GenerationStatus {
+  DRAFT
+  SELECTED
+  COPIED_TO_GOOGLE
+  ABANDONED
+}
+
+enum QRType {
+  BUSINESS_STAND
+  BRANCH_COUNTER
+  LOYALTY_JOIN
+  CAMPAIGN_PROMO
+}
+
+enum QRStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CampaignChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  OPENED
+  CLICKED
+  REDEEMED
+}
+
+enum AutomationActionType {
+  SEND_CAMPAIGN
+  AWARD_STAMPS
+  ADD_TAG
+  ASSIGN_OFFER
+}
+
+enum RuleStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum ExecutionStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAYMENT_FAILED
+  GRACE_PERIOD
+  OVERDUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  PAID
+  OPEN
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum NotificationType {
+  CUSTOMER_ALERT
+  BUSINESS_ALERT
+  REWARD_READY
+  OFFER_EXPIRING
+  BILLING_ISSUE
+  SYSTEM
+}
+
+// ============================================================================
+// 1. PLATFORM / IDENTITY / MULTI-TENANCY
+// ============================================================================
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  name         String
+  phone        String?
+  avatarUrl    String?
+  passwordHash String     @default("")
+  status       UserStatus @default(ACTIVE)
+  isSuperAdmin Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships         StaffMembership[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  authoredNotes       CustomerNote[]
+  rewardRedemptions   RewardRedemption[]
+  offerRedemptions    OfferRedemption[]
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+model Business {
+  id                  String           @id @default(uuid())
+  name                String
+  slug                String           @unique
+  category            BusinessCategory @default(CAFE)
+  description         String?
+  logo                String?
+  coverImage          String?
+  primaryColor        String           @default("#4F6BFF")
+  secondaryColor      String           @default("#111827")
+  themePreset         String           @default("CAFE")
+  timezone            String           @default("UTC")
+  currency            String           @default("INR")
+  phone               String?
+  email               String?
+  address             String?
+  city                String?
+  state               String?
+  country             String?          @default("IN")
+  postalCode          String?
+  website             String?
+  googleReviewUrl     String?
+  instagramUrl        String?
+  facebookUrl         String?
+  whatsappNumber      String?
+  status              BusinessStatus   @default(ACTIVE)
+  planId              String?
+  onboardingCompleted Boolean          @default(false)
+  onboardingStep      Int              @default(1)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  branches            Branch[]
+  staff               StaffMembership[]
+  sessions            Session[]
+  customers           Customer[]
+  loyaltyPrograms     LoyaltyProgram[]
+  rewards             Reward[]
+  rewardRedemptions   RewardRedemption[]
+  offers              Offer[]
+  menus               Menu[]
+  serviceCategories   ServiceCategory[]
+  productCategories   ProductCategory[]
+  reviewFeedbacks     ReviewFeedback[]
+  qrCodes             QRCode[]
+  customerSessions    CustomerSession[]
+  otpChallenges       CustomerOtpChallenge[]
+  campaigns           Campaign[]
+  automationRules     AutomationRule[]
+  subscription        Subscription?
+  auditLogs           AuditLog[]
+  analyticsEvents     AnalyticsEvent[]
+  customerEvents      CustomerEvent[]
+  loyaltyTransactions LoyaltyTransaction[]
+  customerTags        CustomerTag[]
+  customerNotes       CustomerNote[]
+  customerSegments    CustomerSegment[]
+  payments            Payment[]
+  invoices            Invoice[]
+
+  @@map("businesses")
+}
+
+model Branch {
+  id           String       @id @default(uuid())
+  businessId   String
+  name         String
+  code         String?
+  address      String?
+  city         String?
+  state        String?
+  country      String?      @default("IN")
+  postalCode   String?
+  phone        String?
+  timezone     String       @default("UTC")
+  status       BranchStatus @default(ACTIVE)
+  isMainBranch Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  business        Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff           StaffMembership[]
+  customers       Customer[]
+  qrCodes         QRCode[]
+  transactions    LoyaltyTransaction[]
+  rewards         Reward[]
+  rewardRedemptions RewardRedemption[]
+  reviewFeedbacks ReviewFeedback[]
+
+  @@index([businessId, status])
+  @@map("branches")
+}
+
+model StaffMembership {
+  id         String           @id @default(uuid())
+  userId     String
+  businessId String
+  branchId   String?
+  roleId     String
+  status     MembershipStatus @default(ACTIVE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch   Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role     Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, businessId])
+  @@index([businessId, status])
+  @@map("staff_memberships")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  businessId  String?  // null for global/system default roles (Owner, Manager, Staff)
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships     StaffMembership[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  category    String
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ============================================================================
+// 2. CUSTOMER CRM & ACTIVITY
+// ============================================================================
+
+model Customer {
+  id               String         @id @default(uuid())
+  businessId       String
+  branchId         String?
+  name             String
+  phone            String
+  email            String?
+  birthday         DateTime?
+  joinedAt         DateTime       @default(now())
+  lastVisitAt      DateTime?
+  status           CustomerStatus @default(ACTIVE)
+  marketingConsent Boolean        @default(false)
+  totalVisits      Int            @default(0)
+  totalSpendMinor  Int            @default(0) // Integer minor units (e.g., paisa / cents)
+  stampsBalance    Int            @default(0)
+  pointsBalance    Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  business          Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch            Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  consents          CustomerConsent[]
+  tags              CustomerTagAssignment[]
+  notes             CustomerNote[]
+  events            CustomerEvent[]
+  loyaltyCards      LoyaltyCard[]
+  transactions      LoyaltyTransaction[]
+  rewardRedemptions RewardRedemption[]
+  offerRedemptions  OfferRedemption[]
+  reviewFeedbacks   ReviewFeedback[]
+  sessions          CustomerSession[]
+
+  // Critical Invariant: Phone uniqueness is scoped to the business!
+  @@unique([businessId, phone])
+  @@index([businessId, status])
+  @@index([businessId, lastVisitAt])
+  @@index([businessId, email])
+  @@map("customers")
+}
+
+model CustomerConsent {
+  id         String         @id @default(uuid())
+  customerId String
+  channel    ConsentChannel
+  granted    Boolean
+  source     String
+  version    String         @default("1.0")
+  ipAddress  String?
+  grantedAt  DateTime       @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, channel])
+  @@map("customer_consents")
+}
+
+model CustomerTag {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  color      String   @default("#4F6BFF")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business    Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  assignments CustomerTagAssignment[]
+
+  @@unique([businessId, name])
+  @@map("customer_tags")
+}
+
+model CustomerTagAssignment {
+  id         String   @id @default(uuid())
+  customerId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  customer Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      CustomerTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, tagId])
+  @@map("customer_tag_assignments")
+}
+
+model CustomerNote {
+  id         String   @id @default(uuid())
+  businessId String?
+  customerId String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, customerId])
+  @@index([customerId])
+  @@map("customer_notes")
+}
+
+model CustomerSegment {
+  id             String        @id @default(uuid())
+  businessId     String
+  name           String
+  description    String?
+  ruleDefinition Json
+  status         SegmentStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@map("customer_segments")
+}
+
+model CustomerEvent {
+  id         String            @id @default(uuid())
+  businessId String
+  customerId String
+  type       CustomerEventType
+  metadata   Json?
+  createdAt  DateTime          @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([customerId, createdAt])
+  @@map("customer_events")
+}
+
+// ============================================================================
+// 3. LOYALTY ENGINE
+// ============================================================================
+
+model LoyaltyProgram {
+  id                     String        @id @default(uuid())
+  businessId             String
+  name                   String
+  type                   LoyaltyType   @default(STAMP)
+  status                 ProgramStatus @default(ACTIVE)
+  targetStamps           Int?          @default(10)
+  pointsPerCurrencyMinor Int?          // E.g. 1 point per 100 minor units (100 paisa = 1 INR)
+  rewardTitle            String
+  rulesConfig            Json?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  business Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  cards    LoyaltyCard[]
+  rewards  Reward[]
+
+  @@index([businessId, status])
+  @@map("loyalty_programs")
+}
+
+model LoyaltyCard {
+  id                 String     @id @default(uuid())
+  businessId         String
+  customerId         String
+  programId          String
+  stampsCollected    Int        @default(0)
+  totalStampsNeeded  Int        @default(10)
+  pointsBalance      Int        @default(0)
+  status             CardStatus @default(ACTIVE)
+  issuedAt           DateTime   @default(now())
+  completedAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  program      LoyaltyProgram       @relation(fields: [programId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+  rewardRedemptions RewardRedemption[]
+
+  @@unique([customerId, programId])
+  @@index([businessId, customerId])
+  @@map("loyalty_cards")
+}
+
+model LoyaltyTransaction {
+  id              String                 @id @default(uuid())
+  businessId      String
+  branchId        String?
+  customerId      String
+  cardId          String?
+  type            LoyaltyTransactionType
+  deltaStamps     Int                    @default(0)
+  deltaPoints     Int                    @default(0)
+  referenceType   String?
+  referenceId     String?
+  idempotencyKey  String?
+  metadata        Json?
+  createdByUserId String?
+  createdAt       DateTime               @default(now())
+
+  business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch   Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  customer Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  card     LoyaltyCard? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, customerId])
+  @@index([businessId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+// ============================================================================
+// 4. REWARDS & REDEMPTIONS
+// ============================================================================
+
+model Reward {
+  id                    String       @id @default(uuid())
+  businessId            String
+  title                 String
+  description           String?
+  stampsRequired        Int?
+  pointsRequired        Int?
+  status                RewardStatus @default(ACTIVE)
+  expiryDays            Int?         @default(30)
+  usageLimitTotal       Int?
+  usageLimitPerCustomer Int?         @default(1)
+  branchId              String?
+  programId             String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  program     LoyaltyProgram?    @relation(fields: [programId], references: [id], onDelete: SetNull)
+  redemptions RewardRedemption[]
+
+  @@index([businessId, status])
+  @@index([businessId, branchId])
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id                 String           @id @default(uuid())
+  businessId         String
+  branchId           String?
+  rewardId           String
+  customerId         String
+  loyaltyCardId      String?
+  redeemedByUserId   String?
+  redemptionCode     String           @unique
+  status             RedemptionStatus @default(CLAIMED)
+  stampsConsumed     Int?             @default(0)
+  pointsConsumed     Int?             @default(0)
+  idempotencyKey     String?
+  claimedAt          DateTime         @default(now())
+  redeemedAt         DateTime?
+  expiresAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  reward      Reward       @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loyaltyCard LoyaltyCard? @relation(fields: [loyaltyCardId], references: [id], onDelete: SetNull)
+  redeemedBy  User?        @relation(fields: [redeemedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, customerId])
+  @@index([businessId, status])
+  @@index([businessId, redemptionCode])
+  @@map("reward_redemptions")
+}
+
+// ============================================================================
+// 5. OFFERS & PROMOTIONS
+// ============================================================================
+
+model Offer {
+  id                    String      @id @default(uuid())
+  businessId            String
+  title                 String
+  description           String?
+  type                  OfferType   @default(PERCENTAGE_DISCOUNT)
+  discountValue         Int         @default(0) // Percentage or minor currency amount
+  minPurchaseMinor      Int?
+  maxDiscountMinor      Int?
+  startDate             DateTime    @default(now())
+  endDate               DateTime?
+  usageLimitTotal       Int?
+  usageLimitPerCustomer Int?        @default(1)
+  status                OfferStatus @default(ACTIVE)
+  eligibilityConfig     Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  business    Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions OfferRedemption[]
+  campaigns   Campaign[]
+
+  @@index([businessId, status])
+  @@map("offers")
+}
+
+model OfferRedemption {
+  id               String           @id @default(uuid())
+  businessId       String
+  branchId         String?
+  offerId          String
+  customerId       String
+  redeemedByUserId String?
+  status           RedemptionStatus @default(REDEEMED)
+  redemptionCode   String?          @unique
+  idempotencyKey   String?
+  redeemedAt       DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+
+  offer      Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  redeemedBy User?    @relation(fields: [redeemedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, customerId])
+  @@index([businessId, offerId])
+  @@map("offer_redemptions")
+}
+
+// ============================================================================
+// 6. BUSINESS CATALOG (MENU, SERVICES, PRODUCTS)
+// ============================================================================
+
+model Menu {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business   Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  categories MenuCategory[]
+
+  @@map("menus")
+}
+
+model MenuCategory {
+  id        String     @id @default(uuid())
+  menuId    String
+  name      String
+  sortOrder Int        @default(0)
+  menu      Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  items     MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id          String       @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?
+  priceMinor  Int          // In minor integer units (paisa / cents)
+  isAvailable Boolean      @default(true)
+  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("menu_items")
+}
+
+model ServiceCategory {
+  id         String    @id @default(uuid())
+  businessId String
+  name       String
+  sortOrder  Int       @default(0)
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  services   Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id              String          @id @default(uuid())
+  categoryId      String
+  name            String
+  durationMinutes Int             @default(30)
+  priceMinor      Int             // In minor integer units
+  isAvailable     Boolean         @default(true)
+  category        ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("services")
+}
+
+model ProductCategory {
+  id         String    @id @default(uuid())
+  businessId String
+  name       String
+  sortOrder  Int       @default(0)
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products   Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id            String          @id @default(uuid())
+  categoryId    String
+  name          String
+  sku           String?
+  priceMinor    Int             // In minor integer units
+  stockQuantity Int             @default(0)
+  isAvailable   Boolean         @default(true)
+  category      ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("products")
+}
+
+// ============================================================================
+// 7. REVIEW SYSTEM & AI ASSISTANT DRAFTS
+// ============================================================================
+
+model ReviewFeedback {
+  id                         String   @id @default(uuid())
+  businessId                 String
+  branchId                   String?
+  customerId                 String
+  rating                     Int      // 1 to 5
+  feedbackText               String?
+  sentiment                  String?
+  isPublicGoogleReviewTarget Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  generations ReviewGeneration[]
+
+  @@index([businessId, rating])
+  @@map("review_feedbacks")
+}
+
+model ReviewGeneration {
+  id               String           @id @default(uuid())
+  feedbackId       String
+  businessId       String
+  generatedEnglish String
+  generatedHinglish String
+  generatedHindi   String
+  selectedVersion  String?
+  editedText       String?
+  status           GenerationStatus @default(DRAFT)
+  metadata         Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  feedback ReviewFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@map("review_generations")
+}
+
+// ============================================================================
+// 8. QR CODE INFRASTRUCTURE
+// ============================================================================
+
+model QRCode {
+  id             String   @id @default(uuid())
+  businessId     String
+  branchId       String?
+  code           String   @unique
+  type           QRType   @default(BUSINESS_STAND)
+  destinationUrl String
+  scanCount      Int      @default(0)
+  status         QRStatus @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch   Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, type])
+  @@map("qr_codes")
+}
+
+// ============================================================================
+// 9. CAMPAIGNS & RETENTION
+// ============================================================================
+
+model Campaign {
+  id              String          @id @default(uuid())
+  businessId      String
+  offerId         String?
+  name            String
+  audienceFilter  Json?
+  channel         CampaignChannel @default(WHATSAPP)
+  messageTemplate String
+  scheduledAt     DateTime?
+  status          CampaignStatus  @default(DRAFT)
+  totalAudience   Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  offer      Offer?             @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  deliveries CampaignDelivery[]
+
+  @@index([businessId, status])
+  @@map("campaigns")
+}
+
+model CampaignDelivery {
+  id           String          @id @default(uuid())
+  campaignId   String
+  customerId   String
+  channel      CampaignChannel
+  status       DeliveryStatus  @default(QUEUED)
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  failedReason String?
+  createdAt    DateTime        @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@map("campaign_deliveries")
+}
+
+// ============================================================================
+// 10. AUTOMATION RULES
+// ============================================================================
+
+model AutomationRule {
+  id              String               @id @default(uuid())
+  businessId      String
+  name            String
+  triggerEvent    CustomerEventType
+  conditionConfig Json
+  actionType      AutomationActionType
+  actionConfig    Json
+  status          RuleStatus           @default(ACTIVE)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  business   Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+
+  @@index([businessId, status])
+  @@map("automation_rules")
+}
+
+model AutomationExecution {
+  id             String          @id @default(uuid())
+  ruleId         String
+  businessId     String
+  customerId     String
+  triggerEvent   String
+  status         ExecutionStatus @default(SUCCESS)
+  resultMetadata Json?
+  executedAt     DateTime        @default(now())
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, executedAt])
+  @@map("automation_executions")
+}
+
+// ============================================================================
+// 11. BILLING & SUBSCRIPTIONS
+// ============================================================================
+
+model Plan {
+  id               String          @id @default(uuid())
+  name             String
+  slug             String          @unique
+  description      String?
+  priceMinor       Int
+  yearlyPriceMinor Int?
+  currency         String          @default("INR")
+  billingInterval  BillingInterval @default(MONTHLY)
+  features         Json?
+  limits           Json?
+  maxCustomers     Int             @default(1000)
+  maxBranches      Int             @default(1)
+  maxStaff         Int             @default(5)
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  businessId         String             @unique
+  planId             String
+  status             SubscriptionStatus @default(TRIAL)
+  billingInterval    BillingInterval    @default(MONTHLY)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  trialEndsAt        DateTime?
+  gracePeriodEndsAt  DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments Payment[]
+  invoices Invoice[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  businessId        String
+  subscriptionId    String?
+  amountMinor       Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(SUCCESS)
+  provider          String?
+  providerPaymentId String?
+  paymentMethod     String?
+  createdAt         DateTime      @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@map("payments")
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  businessId     String
+  subscriptionId String?
+  invoiceNumber  String        @unique
+  amountMinor    Int
+  currency       String        @default("INR")
+  status         InvoiceStatus @default(PAID)
+  billingPeriod  String?
+  pdfUrl         String?
+  issuedAt       DateTime      @default(now())
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@map("invoices")
+}
+
+// ============================================================================
+// 12. NOTIFICATIONS, AUDIT & ANALYTICS
+// ============================================================================
+
+model Notification {
+  id         String           @id @default(uuid())
+  businessId String?
+  customerId String?
+  userId     String?
+  type       NotificationType @default(BUSINESS_ALERT)
+  title      String
+  body       String
+  channel    String           @default("IN_APP")
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  businessId    String?
+  actorUserId   String?
+  action        String
+  entityType    String
+  entityId      String
+  previousState Json?
+  newState      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  actor    User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  businessId String
+  branchId   String?
+  customerId String?
+  eventType  String
+  eventData  Json?
+  timestamp  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, eventType, timestamp])
+  @@map("analytics_events")
+}
+
+// ============================================================================
+// 13. SESSIONS & AUTHENTICATION TOKENS
+// ============================================================================
+
+model Session {
+  id           String    @id @default(uuid())
+  sessionToken String    @unique
+  userId       String
+  businessId   String?   // Currently active tenant context
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([userId, expiresAt])
+  @@index([sessionToken])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+// 14. CUSTOMER AUTHENTICATION & SESSIONS
+// ============================================================================
+
+model CustomerSession {
+  id           String    @id @default(uuid())
+  sessionToken String    @unique
+  customerId   String
+  businessId   String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, expiresAt])
+  @@index([businessId])
+  @@index([sessionToken])
+  @@map("customer_sessions")
+}
+
+model CustomerOtpChallenge {
+  id          String    @id @default(uuid())
+  businessId  String
+  phone       String    // Normalized E.164 phone
+  codeHash    String    // SHA-256 hashed 6-digit OTP code
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  consumedAt  DateTime?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([phone, businessId])
+  @@index([expiresAt])
+  @@map("customer_otp_challenges")
+}
+

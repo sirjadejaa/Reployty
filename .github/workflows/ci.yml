@@ -1,0 +1,69 @@
+name: Reployty Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, staging]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate-and-test:
+    name: Typecheck, Validate & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: reployty_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Run Prisma Migrations on Test DB
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/reployty_test?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Verify Migration Status
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/reployty_test?schema=public
+        run: npx prisma migrate status
+
+      - name: TypeScript Typecheck
+        run: npx tsc --noEmit
+
+      - name: Execute Full Automated Test Suite
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/reployty_test?schema=public
+          BILLING_WEBHOOK_SECRET: reployty_billing_webhook_secret_2026
+        run: npm test
+
+      - name: Production SPA Build Verification
+        run: npm run build
