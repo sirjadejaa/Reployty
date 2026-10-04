@@ -244,7 +244,7 @@ export async function getBusinessDashboard(ctx: TenantContext) {
     throw new TenantAuthorizationError('Business tenant not found');
   }
 
-  const [customerCount, branchCount, staffCount, programCount, recentActivity] = await Promise.all([
+  const [customerCount, branchCount, staffCount, programCount, recentActivity, activeProgram, entryQrCode] = await Promise.all([
     prisma.customer.count({
       where: { businessId: ctx.businessId },
     }),
@@ -276,6 +276,22 @@ export async function getBusinessDashboard(ctx: TenantContext) {
         },
       },
     }),
+    prisma.loyaltyProgram.findFirst({
+      where: { businessId: ctx.businessId, status: 'ACTIVE' },
+      include: {
+        _count: {
+          select: { cards: true },
+        },
+      },
+    }),
+    prisma.qRCode.findFirst({
+      where: { businessId: ctx.businessId, status: 'ACTIVE', type: 'BUSINESS_STAND' },
+      select: {
+        code: true,
+        destinationUrl: true,
+        scanCount: true,
+      },
+    }),
   ]);
 
   // Compute completed onboarding checklist items
@@ -305,9 +321,30 @@ export async function getBusinessDashboard(ctx: TenantContext) {
       totalSteps: 6,
       checklist,
     },
+    loyaltyProgram: activeProgram
+      ? {
+          id: activeProgram.id,
+          name: activeProgram.name,
+          type: activeProgram.type,
+          targetStamps: activeProgram.targetStamps,
+          pointsPerCurrencyMinor: activeProgram.pointsPerCurrencyMinor,
+          rewardTitle: activeProgram.rewardTitle,
+          status: activeProgram.status,
+          activeCardsCount: activeProgram._count.cards,
+
+          qrCode: entryQrCode
+            ? {
+                code: entryQrCode.code,
+                destinationUrl: entryQrCode.destinationUrl,
+                scanCount: entryQrCode.scanCount,
+              }
+            : null,
+        }
+      : null,
     recentActivity,
   };
 }
+
 
 /**
  * Retrieves the onboarding state for the active business.

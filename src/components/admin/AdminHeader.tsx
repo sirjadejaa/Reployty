@@ -12,6 +12,7 @@ export interface AdminHeaderProps {
 
 const ROUTE_CONTEXT: Record<AdminRoute, { section: string; title: string }> = {
   'admin-overview': { section: 'Overview', title: 'Platform Health & Metrics' },
+  'admin-applications': { section: 'Manage', title: 'Business Applications' },
   'admin-businesses': { section: 'Manage', title: 'Business Directory' },
   'admin-business-detail': { section: 'Manage', title: 'Business Inspection' },
   'admin-users': { section: 'Manage', title: 'Platform Users' },
@@ -82,6 +83,27 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
       {/* Right side: Subtle Super Admin badge, business app switcher, avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        {/* Simulation Environment Indicator */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '3px 9px',
+            borderRadius: '9999px',
+            backgroundColor: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            color: '#1D4ED8',
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}
+          title="Safe Demo / Simulation Mode: No real external SMS, WhatsApp, or payment charges are triggered"
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#2563EB' }} />
+          <span>Simulation</span>
+        </div>
+
         {/* Subtle Super Admin badge */}
         <div
           style={{
@@ -100,6 +122,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <ShieldCheck size={14} />
           <span>Super Admin</span>
         </div>
+
 
         {/* Exit to Business App */}
         {onExitToBusiness && (

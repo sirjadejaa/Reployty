@@ -10,6 +10,9 @@ import { getCustomers, getCustomerById } from '../services/customerService';
 import { awardStamps, redeemReward } from '../services/loyaltyService';
 import { handlePaymentWebhook } from '../services/billingService';
 import { webhookRateLimiter } from '../auth/rateLimiter';
+import { webhookRouter } from './webhookRoutes';
+import { trackingRouter } from './trackingRoutes';
+import { publicRouter } from './publicRoutes';
 
 import { requestIdMiddleware } from '../middleware/requestId';
 import { checkDatabaseHealth } from '../db/client';
@@ -80,8 +83,18 @@ apiApp.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Mount Public Routes (Onboarding requests, invitation token verification & setup)
+apiApp.use('/public', publicRouter);
+
 // Mount Authentication Routes
 apiApp.use('/auth', authRouter);
+
+// Mount Provider Webhooks
+apiApp.use('/webhooks', webhookRouter);
+
+// Mount Campaign Tracking Routes (Clicks & Opens)
+apiApp.use('/track', trackingRouter);
+apiApp.use('/t', trackingRouter);
 
 // Mount Public Webhook Route (Provider callback with auth & rate limiting)
 apiApp.post('/billing/webhook', async (req: Request, res: Response) => {
@@ -271,8 +284,8 @@ apiApp.post('/loyalty/redeem', requireAuthTenant, async (req: TenantRequest, res
   }
 });
 
-// 1. Health Probe (Liveness - process is running)
-apiApp.get('/health', (_req: Request, res: Response) => {
+// 1. Health Probe (Liveness - process is running: /health and /health/live)
+apiApp.get(['/health', '/health/live'], (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     system: 'Reployty Multi-Tenant SaaS',
@@ -282,8 +295,8 @@ apiApp.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Readiness Probe (Readiness - checks database and critical infrastructure)
-apiApp.get('/ready', async (_req: Request, res: Response) => {
+// 2. Readiness Probe (Readiness - checks database and critical infrastructure: /ready and /health/ready)
+apiApp.get(['/ready', '/health/ready'], async (_req: Request, res: Response) => {
   const dbHealth = await checkDatabaseHealth();
   const rateLimitStatus = getRateLimiterStatus();
 

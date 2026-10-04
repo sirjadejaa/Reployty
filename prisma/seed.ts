@@ -24,6 +24,8 @@ const PERMISSIONS = [
   { code: 'REVIEWS_MANAGE', name: 'Manage Reviews', category: 'Reviews' },
   { code: 'CAMPAIGNS_VIEW', name: 'View Campaigns', category: 'Campaigns' },
   { code: 'CAMPAIGNS_MANAGE', name: 'Manage Campaigns', category: 'Campaigns' },
+  { code: 'SEGMENTS_VIEW', name: 'View Customer Segments', category: 'Customers' },
+  { code: 'SEGMENTS_MANAGE', name: 'Manage Customer Segments', category: 'Customers' },
   { code: 'ANALYTICS_VIEW', name: 'View Analytics', category: 'Analytics' },
   { code: 'STAFF_VIEW', name: 'View Staff', category: 'Staff' },
   { code: 'STAFF_MANAGE', name: 'Manage Staff & Roles', category: 'Staff' },

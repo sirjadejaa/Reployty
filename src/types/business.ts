@@ -138,7 +138,24 @@ export interface BusinessDashboardData {
     loyaltyPrograms: number;
   };
   onboarding: OnboardingStatus;
+  loyaltyProgram?: {
+    id: string;
+    name: string;
+    type: 'STAMP' | 'POINTS';
+    targetStamps: number | null;
+    pointsPerCurrencyMinor?: number | null;
+    rewardTitle: string;
+
+    status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+    activeCardsCount: number;
+    qrCode?: {
+      code: string;
+      destinationUrl: string;
+      scanCount: number;
+    } | null;
+  } | null;
   recentActivity: Array<{
+
     id: string;
     action: string;
     entityType: string;

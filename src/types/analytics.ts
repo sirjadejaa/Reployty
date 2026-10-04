@@ -1,3 +1,10 @@
+/**
+ * Reployty V2 — Analytics Types
+ * Includes Platform Overview Analytics and Phase 26 Campaign Analytics, Tracking & Attribution
+ */
+
+import { CampaignChannel, CampaignStatus, CampaignType } from '@prisma/client';
+
 export type DateRangePreset =
   | 'today'
   | 'yesterday'
@@ -192,3 +199,104 @@ export interface AnalyticsQueryInput {
 }
 
 export type ExportType = 'overview' | 'customers' | 'activity' | 'loyalty' | 'offers' | 'reviews';
+
+// ============================================================================
+// Phase 26 Campaign Analytics, Tracking & Attribution Types
+// ============================================================================
+
+export interface DeliveryFunnelMetrics {
+  totalRecipients: number;
+  queued: number;
+  processing: number;
+  sent: number;
+  delivered: number;
+  failed: number;
+  skipped: number;
+  cancelled: number;
+  deliveryRate: number; // 0 to 1
+  failureRate: number;  // 0 to 1
+}
+
+export interface EngagementMetrics {
+  opens: number;
+  uniqueOpens: number;
+  openRate: number;   // opens / delivered
+  clicks: number;
+  uniqueClicks: number;
+  clickRate: number;  // clicks / delivered
+  reads: number;      // WhatsApp reads
+  readRate: number;   // reads / delivered
+  bounces: number;    // Email bounces
+  spamReports: number;// Email spam complaints
+}
+
+export interface ConversionMetrics {
+  totalConversions: number;
+  uniqueConvertedCustomers: number;
+  conversionRate: number; // totalConversions / delivered
+  byType: Record<string, number>;
+}
+
+export interface CampaignAnalyticsSummary {
+  campaignId: string;
+  campaignName: string;
+  status: CampaignStatus;
+  channel: CampaignChannel;
+  type: CampaignType;
+  attributionWindowDays: number;
+  delivery: DeliveryFunnelMetrics;
+  engagement: EngagementMetrics;
+  conversions: ConversionMetrics;
+  channelBreakdown: Record<CampaignChannel, {
+    sent: number;
+    delivered: number;
+    failed: number;
+    opens?: number;
+    clicks?: number;
+    reads?: number;
+  }>;
+  generatedAt: string;
+}
+
+export interface AttributedConversionItem {
+  id: string;
+  campaignId: string;
+  campaignDeliveryId: string;
+  customerId: string;
+  customerName: string;
+  customerPhoneMasked: string;
+  conversionType: string;
+  sourceEventId: string | null;
+  attributionWindowDays: number;
+  occurredAt: string;
+  metadata?: Record<string, any> | null;
+}
+
+export interface CampaignTimelineEvent {
+  id: string;
+  eventType: string; // 'CAMPAIGN_CREATED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'OPENED' | 'CLICKED' | 'READ' | 'CONVERTED'
+  occurredAt: string;
+  description: string;
+  channel?: CampaignChannel;
+  customerName?: string;
+  customerPhoneMasked?: string;
+  details?: Record<string, any>;
+}
+
+export interface TrackedLinkItem {
+  id: string;
+  campaignId: string;
+  trackingCode: string;
+  trackingUrl: string;
+  originalUrl: string;
+  clickCount: number;
+  uniqueClickCount: number;
+  lastClickedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateTrackedLinkDTO {
+  originalUrl: string;
+  deliveryId?: string;
+  customerId?: string;
+}

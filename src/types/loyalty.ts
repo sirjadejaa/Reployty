@@ -45,6 +45,7 @@ export type AdminRoute =
   | 'menu'
   | 'reviews'
   | 'campaigns'
+  | 'automations'
   | 'analytics'
   | 'branches'
   | 'staff'
@@ -54,6 +55,7 @@ export type AdminRoute =
   | 'settings-branches'
   | 'settings-staff'
   | 'settings-branding'
+  | 'settings-messaging'
   | 'design-system'
   | 'customer-preview';
 
@@ -249,28 +251,14 @@ export interface CustomerTimelineItem {
   actor?: string | null;
 }
 
-export interface SegmentCondition {
-  field: 'joinedAt' | 'lastVisitAt' | 'totalVisits' | 'pointsBalance' | 'stampsBalance' | 'totalSpendMinor' | 'status' | 'branchId' | 'tagId';
-  operator: 'equals' | 'not_equals' | 'greater_than' | 'greater_than_or_equal' | 'less_than' | 'less_than_or_equal' | 'within_days' | 'before_days' | 'contains';
-  value: any;
-}
-
-export interface SegmentRuleDefinition {
-  conditions: SegmentCondition[];
-  matchType?: 'ALL' | 'ANY';
-}
-
-export interface CustomerSegmentItem {
-  id: string;
-  businessId: string;
-  name: string;
-  description: string | null;
-  ruleDefinition: SegmentRuleDefinition;
-  status: 'ACTIVE' | 'ARCHIVED';
-  customerCount?: number;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  SegmentField,
+  SegmentOperator,
+  SegmentCondition,
+  SegmentConditionGroup,
+  SegmentRuleDefinition,
+  SegmentItem as CustomerSegmentItem,
+} from './segment';
 
 export interface Customer360Detail {
   customer: {

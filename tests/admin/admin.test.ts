@@ -12,7 +12,10 @@ import {
   getPlatformAnalytics,
 } from '../../src/server/services/platformService';
 
-const BASE_URL = 'http://localhost:3000';
+import { startTestServer, TestServerContext } from '../e2e/test_helpers';
+
+let serverCtx: TestServerContext | null = null;
+let baseUrl = 'http://localhost:3000';
 
 let testPassed = 0;
 let testFailed = 0;
@@ -28,7 +31,8 @@ function assert(condition: boolean, name: string, detail?: string) {
 }
 
 async function apiRequest(path: string, options: RequestInit = {}): Promise<{ status: number; headers: Headers; data: any; cookie?: string }> {
-  const url = `${BASE_URL}${path}`;
+  const url = `${baseUrl}${path}`;
+
   const res = await fetch(url, options);
   let data: any = null;
   const contentType = res.headers.get('content-type');
@@ -47,10 +51,19 @@ async function runSuperAdminSuite() {
   console.log('==================================================================\n');
 
   try {
+    try {
+      const ping = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(500) });
+      if (!ping.ok) throw new Error('Not running');
+    } catch {
+      serverCtx = await startTestServer();
+      baseUrl = serverCtx.baseUrl;
+    }
+
     // ------------------------------------------------------------------------
     // SETUP: Fetch seeded Super Admin and standard Business Owner
     // ------------------------------------------------------------------------
     const superAdminUser = await prisma.user.findUnique({
+
       where: { email: 'admin@reployty.com' },
     });
     assert(!!superAdminUser && superAdminUser.isSuperAdmin === true, 'Super Admin user exists and isSuperAdmin === true');
@@ -172,8 +185,13 @@ async function runSuperAdminSuite() {
     // ------------------------------------------------------------------------
     console.log('\n[5] User Suspension & Session Revocation:');
     // Pick a test user who is active and not super admin
-    const testSubjectUser = usersResult.users.find(u => u.email === 'sarah.cashier@reployty.com');
+    const userSearch = await getPlatformUsers({ search: 'sarah.cashier@reployty.com', pageSize: 10 });
+    let testSubjectUser = userSearch.users.find(u => u.email === 'sarah.cashier@reployty.com');
+    if (!testSubjectUser) {
+      testSubjectUser = (await prisma.user.findUnique({ where: { email: 'sarah.cashier@reployty.com' } })) as any;
+    }
     assert(!!testSubjectUser, 'Target user found for suspension testing');
+
 
     // Create a live session for this user to verify revocation
     const testSession = await prisma.session.create({
@@ -365,7 +383,12 @@ async function runSuperAdminSuite() {
     console.error('Test Suite Runtime Error:', err);
     testFailed++;
   } finally {
+    if (serverCtx) {
+      await serverCtx.stop().catch(() => {});
+    }
+
     console.log('\n==================================================================');
+
     console.log(`TEST RESULTS: ${testPassed} Passed, ${testFailed} Failed`);
     console.log('==================================================================\n');
 

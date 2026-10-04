@@ -5,6 +5,7 @@
 
 export type SuperAdminRoute =
   | 'admin-overview'
+  | 'admin-applications'
   | 'admin-businesses'
   | 'admin-business-detail'
   | 'admin-users'
@@ -108,7 +109,29 @@ export interface PlatformBusinessDetail extends PlatformBusiness {
     actorEmail: string;
     createdAt: string;
   }>;
+  onboardingCompleted?: boolean;
+  qrCodes?: Array<{
+    id: string;
+    code: string;
+    type: string;
+    status: string;
+    destinationUrl: string;
+    scanCount: number;
+    createdAt: string;
+  }>;
+
+  ownerInvitations?: Array<{
+    id: string;
+    expiresAt: string;
+    usedAt: string | null;
+    createdAt: string;
+    user: {
+      email: string;
+      name: string;
+    };
+  }>;
 }
+
 
 export interface PlatformUser {
   id: string;

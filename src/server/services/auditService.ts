@@ -60,10 +60,51 @@ export async function createAuditLog(
   params: AuditLogParams
 ) {
   const targetBusinessId = params.businessId !== undefined ? params.businessId : (ctx.businessId || null);
+  let validActorUserId: string | null = null;
+  if (ctx.user?.id) {
+    const userExists = await prisma.user.findUnique({
+      where: { id: ctx.user.id },
+      select: { id: true },
+    });
+    if (userExists) {
+      validActorUserId = userExists.id;
+    }
+  }
+
   return prisma.auditLog.create({
     data: {
       businessId: targetBusinessId,
-      actorUserId: ctx.user.id,
+      actorUserId: validActorUserId,
+      action: params.action,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      previousState: params.previousState ? sanitizeAuditState(params.previousState) : undefined,
+      newState: params.newState ? sanitizeAuditState(params.newState) : undefined,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+    },
+  });
+}
+
+/**
+ * Creates an audit log entry for system-level, public, or pre-authentication actions
+ * where a full verified TenantContext is not available.
+ */
+export async function createSystemAuditLog(params: {
+  action: string;
+  entityType: string;
+  entityId: string;
+  businessId?: string | null;
+  actorUserId?: string | null;
+  previousState?: any;
+  newState?: any;
+  ipAddress?: string;
+  userAgent?: string;
+}) {
+  return prisma.auditLog.create({
+    data: {
+      businessId: params.businessId || null,
+      actorUserId: params.actorUserId || null,
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId,

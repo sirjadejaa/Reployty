@@ -2,6 +2,7 @@ import { prisma } from '../db/client';
 import { TenantContext, requirePermission, requireSuperAdmin } from '../auth/tenantContext';
 import { createAuditLog } from './auditService';
 import { getBusinessSubscription, getUsageAndLimits } from './entitlementService';
+import { UsageMeterService } from './usageMeterService';
 import {
   Plan,
   Payment,
@@ -159,6 +160,7 @@ export async function getBusinessBillingOverview(ctx: TenantContext) {
 
   const sub = await getBusinessSubscription(ctx.businessId);
   const usageAndLimits = await getUsageAndLimits(ctx.businessId);
+  const usageSummary = await UsageMeterService.getUsageSummary(ctx.businessId);
 
   const [availablePlans, payments, invoices] = await Promise.all([
     getAllPlans(true),
@@ -204,6 +206,7 @@ export async function getBusinessBillingOverview(ctx: TenantContext) {
     },
     usage: usageAndLimits.usage,
     limits: usageAndLimits.limits,
+    usageSummary,
     availablePlans: availablePlans.map((p) => ({
       id: p.id,
       name: p.name,

@@ -6,7 +6,6 @@ import {
   CustomerTagItem,
   CustomerNoteItem,
   CustomerTimelineItem,
-  SegmentCondition,
   SegmentRuleDefinition,
   CustomerSegmentItem,
   Customer360Detail,
@@ -16,144 +15,27 @@ import {
 // Whitelist-Based Segment Evaluator
 // ============================================================================
 
-export const ALLOWED_SEGMENT_FIELDS = [
-  'joinedAt',
-  'lastVisitAt',
-  'totalVisits',
-  'totalSpendMinor',
-  'pointsBalance',
-  'stampsBalance',
-  'status',
-  'branchId',
-  'tagId',
-] as const;
+import {
+  SEGMENT_FIELDS,
+  SEGMENT_OPERATORS,
+  validateRuleDefinition,
+  compileRuleDefinition,
+} from './segmentationService';
 
-export const ALLOWED_SEGMENT_OPERATORS = [
-  'equals',
-  'not_equals',
-  'greater_than',
-  'greater_than_or_equal',
-  'less_than',
-  'less_than_or_equal',
-  'within_days',
-  'before_days',
-  'contains',
-] as const;
-
+export const ALLOWED_SEGMENT_FIELDS = SEGMENT_FIELDS;
+export const ALLOWED_SEGMENT_OPERATORS = SEGMENT_OPERATORS;
 export type AllowedSegmentField = (typeof ALLOWED_SEGMENT_FIELDS)[number];
 export type AllowedSegmentOperator = (typeof ALLOWED_SEGMENT_OPERATORS)[number];
 
 export function validateSegmentRuleDefinition(ruleDef: any): SegmentRuleDefinition {
-  if (!ruleDef || typeof ruleDef !== 'object') {
-    throw new Error('Invalid segment rule definition: must be an object');
-  }
-
-  const matchType = ruleDef.matchType === 'ANY' ? 'ANY' : 'ALL';
-  const rawConditions = Array.isArray(ruleDef.conditions) ? ruleDef.conditions : [];
-
-  const conditions: SegmentCondition[] = [];
-
-  for (const c of rawConditions) {
-    if (!c || typeof c !== 'object') continue;
-    if (!ALLOWED_SEGMENT_FIELDS.includes(c.field)) {
-      throw new Error(`Invalid segment field: "${c.field}". Field is not whitelisted.`);
-    }
-    if (!ALLOWED_SEGMENT_OPERATORS.includes(c.operator)) {
-      throw new Error(`Invalid segment operator: "${c.operator}". Operator is not whitelisted.`);
-    }
-
-    conditions.push({
-      field: c.field,
-      operator: c.operator,
-      value: c.value,
-    });
-  }
-
-  return { matchType, conditions };
+  return validateRuleDefinition(ruleDef);
 }
 
 export function compileSegmentWhere(
   ruleDef: SegmentRuleDefinition,
   businessId: string
 ): Prisma.CustomerWhereInput {
-  const clauses: Prisma.CustomerWhereInput[] = [{ businessId }];
-
-  const now = new Date();
-
-  const conditionClauses: Prisma.CustomerWhereInput[] = [];
-
-  for (const c of ruleDef.conditions) {
-    const { field, operator, value } = c;
-
-    switch (field) {
-      case 'totalVisits':
-      case 'totalSpendMinor':
-      case 'pointsBalance':
-      case 'stampsBalance': {
-        const numVal = Number(value) || 0;
-        if (operator === 'equals') conditionClauses.push({ [field]: numVal });
-        else if (operator === 'not_equals') conditionClauses.push({ [field]: { not: numVal } });
-        else if (operator === 'greater_than') conditionClauses.push({ [field]: { gt: numVal } });
-        else if (operator === 'greater_than_or_equal') conditionClauses.push({ [field]: { gte: numVal } });
-        else if (operator === 'less_than') conditionClauses.push({ [field]: { lt: numVal } });
-        else if (operator === 'less_than_or_equal') conditionClauses.push({ [field]: { lte: numVal } });
-        break;
-      }
-
-      case 'status': {
-        const statusVal = String(value) as CustomerStatus;
-        if (operator === 'equals') conditionClauses.push({ status: statusVal });
-        else if (operator === 'not_equals') conditionClauses.push({ status: { not: statusVal } });
-        break;
-      }
-
-      case 'branchId': {
-        const branchVal = String(value);
-        if (operator === 'equals') conditionClauses.push({ branchId: branchVal });
-        else if (operator === 'not_equals') conditionClauses.push({ branchId: { not: branchVal } });
-        break;
-      }
-
-      case 'tagId': {
-        const tagVal = String(value);
-        if (operator === 'equals') {
-          conditionClauses.push({ tags: { some: { tagId: tagVal } } });
-        } else if (operator === 'not_equals') {
-          conditionClauses.push({ tags: { none: { tagId: tagVal } } });
-        }
-        break;
-      }
-
-      case 'lastVisitAt':
-      case 'joinedAt': {
-        const days = Number(value) || 0;
-        if (operator === 'within_days') {
-          const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-          conditionClauses.push({ [field]: { gte: cutoff } });
-        } else if (operator === 'before_days') {
-          const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-          conditionClauses.push({ [field]: { lt: cutoff } });
-        } else if (operator === 'greater_than' || operator === 'greater_than_or_equal') {
-          const dt = new Date(value);
-          conditionClauses.push({ [field]: { gte: dt } });
-        } else if (operator === 'less_than' || operator === 'less_than_or_equal') {
-          const dt = new Date(value);
-          conditionClauses.push({ [field]: { lte: dt } });
-        }
-        break;
-      }
-    }
-  }
-
-  if (conditionClauses.length > 0) {
-    if (ruleDef.matchType === 'ANY') {
-      clauses.push({ OR: conditionClauses });
-    } else {
-      clauses.push({ AND: conditionClauses });
-    }
-  }
-
-  return { AND: clauses };
+  return compileRuleDefinition(ruleDef, businessId);
 }
 
 // ============================================================================
@@ -1393,8 +1275,10 @@ export async function getBusinessSegments(ctx: TenantContext): Promise<CustomerS
     result.push({
       id: seg.id,
       businessId: seg.businessId,
+      branchId: seg.branchId || null,
       name: seg.name,
       description: seg.description,
+      type: (seg.type as any) || 'DYNAMIC',
       ruleDefinition: seg.ruleDefinition as unknown as SegmentRuleDefinition,
       status: seg.status,
       customerCount,
@@ -1447,8 +1331,10 @@ export async function createBusinessSegment(
   return {
     id: segment.id,
     businessId: segment.businessId,
+    branchId: segment.branchId || null,
     name: segment.name,
     description: segment.description,
+    type: (segment.type as any) || 'DYNAMIC',
     ruleDefinition: validatedRules,
     status: segment.status,
     customerCount,
@@ -1520,8 +1406,10 @@ export async function updateBusinessSegment(
   return {
     id: updated.id,
     businessId: updated.businessId,
+    branchId: updated.branchId || null,
     name: updated.name,
     description: updated.description,
+    type: (updated.type as any) || 'DYNAMIC',
     ruleDefinition: finalRules,
     status: updated.status,
     customerCount,

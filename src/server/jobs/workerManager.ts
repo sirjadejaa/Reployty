@@ -16,6 +16,9 @@
 
 import { prisma } from '../db/client';
 import { evaluateGraceAndDowngrades } from '../services/billingService';
+import { processDueScheduledCampaigns } from '../services/campaignSchedulerService';
+import { recoverStaleDeliveries } from '../services/campaignQueueService';
+import { processTimeBasedRetention } from '../services/retentionWorkflowService';
 import { logger } from '../utils/logger';
 
 export interface WorkerJobResult {
@@ -147,6 +150,44 @@ class WorkerManager {
   }
 
   /**
+   * Job 5: Campaign Scheduled Dispatch Worker
+   * Polls for SCHEDULED campaigns whose scheduledAt has arrived and dispatches them.
+   */
+  async runDueScheduledCampaigns(): Promise<WorkerJobResult> {
+    return this.runJob('campaign_scheduler', async () => {
+      const result = await processDueScheduledCampaigns({ limit: 25 });
+      return { claimedCount: result.claimedCount, executedCount: result.executedCount };
+    });
+  }
+
+  /**
+   * Job 6: Abandoned / Stale Delivery Recovery Worker
+   * Resets abandoned PROCESSING queue items whose worker crashed or timed out.
+   */
+  async runStaleDeliveryRecovery(): Promise<WorkerJobResult> {
+    return this.runJob('stale_delivery_recovery', async () => {
+      const recoveredCount = await recoverStaleDeliveries(5);
+      return { recoveredCount };
+    });
+  }
+
+  /**
+   * Job 7: Time-Based Retention Engine
+   * Evaluates inactivity, win-back, and birthday triggers across active businesses.
+   */
+  async runTimeBasedRetention(): Promise<WorkerJobResult> {
+    return this.runJob('retention_triggers', async () => {
+      const result = await processTimeBasedRetention({ limitPerWorkflow: 50 });
+      return {
+        processedRulesCount: result.processedRulesCount,
+        executionsCreated: result.totalExecutionsCreated,
+        executionsCompleted: result.totalExecutionsCompleted,
+        executionsSkipped: result.totalExecutionsSkipped,
+      };
+    });
+  }
+
+  /**
    * Starts periodic execution schedules for production.
    */
   startScheduledJobs(intervalMs = 5 * 60 * 1000): void {
@@ -155,19 +196,27 @@ class WorkerManager {
 
     logger.info('Starting background worker scheduled tasks', { intervalMs });
 
-    // Hourly grace & subscription checks
+    // High-frequency queue & scheduler checks (every 60s or 1/5 interval)
+    const queueIntervalMs = Math.max(10_000, Math.floor(intervalMs / 5));
+    const campaignInterval = setInterval(() => {
+      this.runDueScheduledCampaigns().catch(() => {});
+      this.runStaleDeliveryRecovery().catch(() => {});
+    }, queueIntervalMs);
+
+    // Regular interval: Grace period, subscription checks & retention workflows
     const subInterval = setInterval(() => {
       this.runSubscriptionDowngrades().catch(() => {});
+      this.runTimeBasedRetention().catch(() => {});
     }, intervalMs);
 
-    // Hourly OTP & Session cleanups
+    // Housekeeping interval: OTP & Session cleanups & expired vouchers
     const cleanupInterval = setInterval(() => {
       this.runOtpCleanup().catch(() => {});
       this.runSessionCleanup().catch(() => {});
       this.runExpiredVouchersUpdate().catch(() => {});
     }, intervalMs * 2);
 
-    this.intervals.push(subInterval, cleanupInterval);
+    this.intervals.push(campaignInterval, subInterval, cleanupInterval);
   }
 
   /**

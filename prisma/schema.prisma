@@ -18,7 +18,10 @@ datasource db {
 enum BusinessCategory {
   CAFE
   RESTAURANT
+  BAKERY
   SALON
+  BEAUTY
+  SPA
   GYM
   GAMEZONE
   RETAIL
@@ -82,6 +85,14 @@ enum CustomerEventType {
   CUSTOMER_BECAME_AT_RISK
   CUSTOMER_BECAME_INACTIVE
   CUSTOMER_REACTIVATED
+  CAMPAIGN_TOUCHPOINT
+  CUSTOMER_BIRTHDAY
+}
+
+enum RetentionWorkflowType {
+  INACTIVITY
+  WIN_BACK
+  BIRTHDAY
 }
 
 enum LoyaltyType {
@@ -99,8 +110,14 @@ enum ProgramStatus {
 }
 
 enum SegmentStatus {
+  DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum SegmentType {
+  DYNAMIC
+  STATIC
 }
 
 enum CardStatus {
@@ -178,24 +195,58 @@ enum CampaignChannel {
   WHATSAPP
   SMS
   EMAIL
+  IN_APP
 }
 
 enum CampaignStatus {
   DRAFT
   SCHEDULED
+  QUEUED
+  PROCESSING
   SENDING
   SENT
+  ACTIVE
+  PAUSED
+  COMPLETED
   CANCELLED
+  FAILED
 }
 
 enum DeliveryStatus {
+  PENDING
   QUEUED
+  PROCESSING
   SENT
   DELIVERED
+  RETRY_WAIT
   FAILED
+  CANCELLED
+  EXPIRED
   OPENED
   CLICKED
   REDEEMED
+}
+
+enum CampaignType {
+  ONE_TIME
+  AUTOMATED
+  TRIGGERED
+}
+
+enum AudienceType {
+  ALL_CUSTOMERS
+  SAVED_SEGMENT
+  DYNAMIC_SEGMENT
+  SPECIFIC_CUSTOMER
+}
+
+enum CampaignActionType {
+  SEND_MESSAGE
+  SEND_OFFER
+  SEND_REWARD_REMINDER
+  ADD_TAG
+  REMOVE_TAG
+  CREATE_TASK
 }
 
 enum AutomationActionType {
@@ -206,14 +257,20 @@ enum AutomationActionType {
 }
 
 enum RuleStatus {
+  DRAFT
   ACTIVE
   PAUSED
+  ARCHIVED
 }
 
 enum ExecutionStatus {
-  SUCCESS
+  PENDING
+  PROCESSING
+  COMPLETED
   FAILED
   SKIPPED
+  CANCELLED
+  SUCCESS
 }
 
 enum BillingInterval {
@@ -243,6 +300,14 @@ enum InvoiceStatus {
   OPEN
   VOID
   UNCOLLECTIBLE
+}
+
+enum UsageMeterType {
+  SMS_MESSAGE
+  WHATSAPP_MESSAGE
+  EMAIL_MESSAGE
+  CAMPAIGN_DELIVERY
+  AUTOMATION_EXECUTION
 }
 
 enum NotificationType {
@@ -277,6 +342,10 @@ model User {
   rewardRedemptions   RewardRedemption[]
   offerRedemptions    OfferRedemption[]
   auditLogs           AuditLog[]
+  createdCampaigns    Campaign[]            @relation("CampaignCreator")
+  createdSegments     CustomerSegment[]     @relation("SegmentCreator")
+  reviewedOnboardingRequests BusinessOnboardingRequest[] @relation("RequestReviewer")
+  ownerInvitations           OwnerInvitation[]
 
   @@map("users")
 }
@@ -329,7 +398,10 @@ model Business {
   customerSessions    CustomerSession[]
   otpChallenges       CustomerOtpChallenge[]
   campaigns           Campaign[]
+  campaignExecutions  CampaignExecution[]
+  campaignDeliveries  CampaignDelivery[]
   automationRules     AutomationRule[]
+  automationExecutions AutomationExecution[]
   subscription        Subscription?
   auditLogs           AuditLog[]
   analyticsEvents     AnalyticsEvent[]
@@ -340,6 +412,15 @@ model Business {
   customerSegments    CustomerSegment[]
   payments            Payment[]
   invoices            Invoice[]
+  messagingConfigs    BusinessMessagingConfig[]
+  providerDeliveryEvents ProviderDeliveryEvent[]
+  campaignAnalyticsEvents CampaignAnalyticsEvent[]
+  campaignTrackingLinks   CampaignTrackingLink[]
+  campaignConversions     CampaignConversion[]
+  automationRuleVersions  AutomationRuleVersion[]
+  usageMeterEvents        UsageMeterEvent[]
+  onboardingRequests      BusinessOnboardingRequest[] @relation("ProvisionedFromRequest")
+  ownerInvitations        OwnerInvitation[]
 
   @@map("businesses")
 }
@@ -361,14 +442,21 @@ model Branch {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  business        Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  staff           StaffMembership[]
-  customers       Customer[]
-  qrCodes         QRCode[]
-  transactions    LoyaltyTransaction[]
-  rewards         Reward[]
-  rewardRedemptions RewardRedemption[]
-  reviewFeedbacks ReviewFeedback[]
+  business           Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff              StaffMembership[]
+  customers          Customer[]
+  qrCodes            QRCode[]
+  transactions       LoyaltyTransaction[]
+  rewards            Reward[]
+  rewardRedemptions  RewardRedemption[]
+  reviewFeedbacks    ReviewFeedback[]
+  campaigns          Campaign[]
+  campaignExecutions CampaignExecution[]
+  campaignDeliveries CampaignDelivery[]
+  customerSegments   CustomerSegment[]
+  automationRules    AutomationRule[]
+  automationExecutions AutomationExecution[]
+  customerEvents     CustomerEvent[]
 
   @@index([businessId, status])
   @@map("branches")
@@ -468,11 +556,17 @@ model Customer {
   offerRedemptions  OfferRedemption[]
   reviewFeedbacks   ReviewFeedback[]
   sessions          CustomerSession[]
+  campaignDeliveries CampaignDelivery[]
+  automationExecutions AutomationExecution[]
+  campaignAnalyticsEvents CampaignAnalyticsEvent[]
+  campaignConversions     CampaignConversion[]
+  usageMeterEvents        UsageMeterEvent[]
 
   // Critical Invariant: Phone uniqueness is scoped to the business!
   @@unique([businessId, phone])
   @@index([businessId, status])
   @@index([businessId, lastVisitAt])
+  @@index([businessId, birthday])
   @@index([businessId, email])
   @@map("customers")
 }
@@ -545,16 +639,24 @@ model CustomerNote {
 model CustomerSegment {
   id             String        @id @default(uuid())
   businessId     String
+  branchId       String?
   name           String
   description    String?
+  type           SegmentType   @default(DYNAMIC)
   ruleDefinition Json
   status         SegmentStatus @default(ACTIVE)
+  createdById    String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch    Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy User?      @relation("SegmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  campaigns Campaign[]
 
   @@index([businessId, status])
+  @@index([businessId, type])
+  @@index([branchId])
   @@map("customer_segments")
 }
 
@@ -562,15 +664,20 @@ model CustomerEvent {
   id         String            @id @default(uuid())
   businessId String
   customerId String
+  branchId   String?
   type       CustomerEventType
   metadata   Json?
   createdAt  DateTime          @default(now())
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business   Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer   Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  branch     Branch?               @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  executions AutomationExecution[]
 
   @@index([businessId, createdAt])
+  @@index([businessId, type, createdAt])
   @@index([customerId, createdAt])
+  @@index([branchId])
   @@map("customer_events")
 }
 
@@ -926,43 +1033,134 @@ model QRCode {
 // ============================================================================
 
 model Campaign {
-  id              String          @id @default(uuid())
+  id              String             @id @default(uuid())
   businessId      String
   offerId         String?
   name            String
+  description     String?
+  type            CampaignType       @default(ONE_TIME)
+  audienceType    AudienceType       @default(ALL_CUSTOMERS)
+  segmentId       String?
+  branchId        String?
+  createdById     String?
+  actionType      CampaignActionType @default(SEND_MESSAGE)
+  triggerEvent    CustomerEventType?
+  triggerConfig   Json?
   audienceFilter  Json?
-  channel         CampaignChannel @default(WHATSAPP)
+  channel         CampaignChannel    @default(WHATSAPP)
   messageTemplate String
   scheduledAt     DateTime?
-  status          CampaignStatus  @default(DRAFT)
-  totalAudience   Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  timezone        String?
+  startDate       DateTime?
+  endDate         DateTime?
+  lastRunAt       DateTime?
+  status          CampaignStatus     @default(DRAFT)
+  totalAudience   Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  offer      Offer?             @relation(fields: [offerId], references: [id], onDelete: SetNull)
-  deliveries CampaignDelivery[]
+  business        Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  offer           Offer?             @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  segment         CustomerSegment?   @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  branch          Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy       User?              @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  deliveries      CampaignDelivery[]
+  executions      CampaignExecution[]
+  attributionWindowDays Int @default(14)
+  analyticsEvents CampaignAnalyticsEvent[]
+  trackingLinks   CampaignTrackingLink[]
+  conversions     CampaignConversion[]
+  usageMeterEvents UsageMeterEvent[]
 
   @@index([businessId, status])
+  @@index([businessId, type])
+  @@index([branchId])
   @@map("campaigns")
 }
 
-model CampaignDelivery {
-  id           String          @id @default(uuid())
-  campaignId   String
-  customerId   String
-  channel      CampaignChannel
-  status       DeliveryStatus  @default(QUEUED)
-  sentAt       DateTime?
-  deliveredAt  DateTime?
-  openedAt     DateTime?
-  clickedAt    DateTime?
-  failedReason String?
-  createdAt    DateTime        @default(now())
+model CampaignExecution {
+  id             String             @id @default(uuid())
+  campaignId     String
+  businessId     String
+  branchId       String?
+  triggerType    String             @default("SCHEDULED")
+  status         String             @default("QUEUED")
+  totalAudience  Int                @default(0)
+  eligibleCount  Int                @default(0)
+  queuedCount    Int                @default(0)
+  deliveredCount Int                @default(0)
+  failedCount    Int                @default(0)
+  skippedCount   Int                @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  errorMessage   String?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign       Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch         Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  deliveries          CampaignDelivery[]
+  automationExecutions AutomationExecution[]
+
+  @@index([campaignId, createdAt])
+  @@index([businessId, status])
+  @@map("campaign_executions")
+}
+
+model CampaignDelivery {
+  id             String             @id @default(uuid())
+  campaignId     String
+  customerId     String
+  businessId     String?
+  branchId       String?
+  executionId    String?
+  channel        CampaignChannel
+  status         DeliveryStatus     @default(QUEUED)
+  attemptCount   Int                @default(0)
+  maxAttempts    Int                @default(5)
+  availableAt    DateTime?          @default(now())
+  scheduledAt    DateTime?
+  lastAttemptAt  DateTime?
+  nextRetryAt    DateTime?
+  lockedAt       DateTime?
+  lockedBy       String?
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  cancelledAt    DateTime?
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  provider       String?
+  providerMessageId String?
+  failedReason   String?
+  lastError      String?
+  idempotencyKey String?            @unique
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt @default(now())
+
+  campaign       Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business       Business?          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch         Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  execution      CampaignExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  providerDeliveryEvents ProviderDeliveryEvent[]
+  readAt         DateTime?
+  analyticsEvents CampaignAnalyticsEvent[]
+  trackingLinks   CampaignTrackingLink[]
+  conversions     CampaignConversion[]
+  usageMeterEvents UsageMeterEvent[]
 
   @@index([campaignId, status])
+  @@index([customerId, createdAt])
+  @@index([status, availableAt, nextRetryAt])
+  @@index([businessId, status])
+  @@index([executionId])
+  @@index([providerMessageId])
   @@map("campaign_deliveries")
 }
 
@@ -971,37 +1169,94 @@ model CampaignDelivery {
 // ============================================================================
 
 model AutomationRule {
-  id              String               @id @default(uuid())
-  businessId      String
-  name            String
-  triggerEvent    CustomerEventType
-  conditionConfig Json
-  actionType      AutomationActionType
-  actionConfig    Json
-  status          RuleStatus           @default(ACTIVE)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id                       String               @id @default(uuid())
+  businessId               String
+  branchId                 String?
+  name                     String
+  description              String?
+  triggerEvent             CustomerEventType
+  conditionConfig          Json                 @default("{}")
+  actionType               AutomationActionType @default(SEND_CAMPAIGN)
+  actionConfig             Json                 @default("{}")
+  status                   RuleStatus           @default(DRAFT)
+  version                  Int                  @default(1)
+  workflowDefinition       Json?
+  draftDefinition          Json?
+  workflowType             RetentionWorkflowType?
+  retentionConfig          Json?
+  cooldownMinutes          Int                  @default(0)
+  maxExecutionsPerCustomer Int?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
 
-  business   Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch     Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   executions AutomationExecution[]
+  versions   AutomationRuleVersion[]
 
   @@index([businessId, status])
+  @@index([businessId, workflowType, status])
+  @@index([businessId, triggerEvent, status])
+  @@index([branchId])
   @@map("automation_rules")
 }
 
+model AutomationRuleVersion {
+  id                 String               @id @default(uuid())
+  ruleId             String
+  businessId         String
+  version            Int
+  name               String
+  triggerEvent       CustomerEventType
+  workflowDefinition Json?
+  conditionConfig    Json                 @default("{}")
+  actionType         AutomationActionType @default(SEND_CAMPAIGN)
+  actionConfig       Json                 @default("{}")
+  createdAt          DateTime             @default(now())
+
+  rule     AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, version])
+  @@index([businessId, ruleId])
+  @@map("automation_rule_versions")
+}
+
 model AutomationExecution {
-  id             String          @id @default(uuid())
-  ruleId         String
-  businessId     String
-  customerId     String
-  triggerEvent   String
-  status         ExecutionStatus @default(SUCCESS)
-  resultMetadata Json?
-  executedAt     DateTime        @default(now())
+  id                  String            @id @default(uuid())
+  ruleId              String
+  businessId          String
+  branchId            String?
+  customerId          String
+  eventId             String?
+  campaignExecutionId String?
+  triggerEvent        CustomerEventType
+  ruleVersion         Int?              @default(1)
+  status              ExecutionStatus   @default(PENDING)
+  resultMetadata      Json?
+  skipReason          String?
+  lastError           String?
+  attemptCount        Int               @default(1)
+  idempotencyKey      String?           @unique
+  startedAt           DateTime?
+  completedAt         DateTime?
+  failedAt            DateTime?
+  executedAt          DateTime          @default(now())
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
-  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  rule              AutomationRule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  business          Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  event             CustomerEvent?     @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  campaignExecution CampaignExecution? @relation(fields: [campaignExecutionId], references: [id], onDelete: SetNull)
 
-  @@index([ruleId, executedAt])
+  @@unique([ruleId, eventId])
+  @@index([businessId, status])
+  @@index([ruleId, customerId, executedAt])
+  @@index([eventId])
+  @@index([customerId])
   @@map("automation_executions")
 }
 
@@ -1050,6 +1305,7 @@ model Subscription {
   plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
   payments Payment[]
   invoices Invoice[]
+  usageMeterEvents UsageMeterEvent[]
 
   @@map("subscriptions")
 }
@@ -1092,6 +1348,42 @@ model Invoice {
 
   @@index([businessId, createdAt])
   @@map("invoices")
+}
+
+model UsageMeterEvent {
+  id                    String            @id @default(uuid())
+  businessId            String
+  subscriptionId        String?
+  billingPeriodStart    DateTime
+  billingPeriodEnd      DateTime
+  meterType             UsageMeterType
+  quantity              Int               @default(1)
+  sourceType            String
+  sourceId              String
+  channel               CampaignChannel?
+  customerId            String?
+  campaignId            String?
+  campaignDeliveryId    String?
+  automationExecutionId String?
+  unitPriceMinor        Int?
+  currency              String?           @default("INR")
+  isOverage             Boolean           @default(false)
+  idempotencyKey        String            @unique
+  metadata              Json?
+  occurredAt            DateTime          @default(now())
+  createdAt             DateTime          @default(now())
+
+  business              Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscription          Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  campaign              Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignDelivery      CampaignDelivery? @relation(fields: [campaignDeliveryId], references: [id], onDelete: SetNull)
+  customer              Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, occurredAt])
+  @@index([businessId, meterType, occurredAt])
+  @@index([businessId, subscriptionId, occurredAt])
+  @@index([businessId, campaignId])
+  @@map("usage_meter_events")
 }
 
 // ============================================================================
@@ -1231,4 +1523,223 @@ model CustomerOtpChallenge {
   @@index([expiresAt])
   @@map("customer_otp_challenges")
 }
+
+// ============================================================================
+// 12. MESSAGING PROVIDER CONNECTORS (PHASE 25)
+// ============================================================================
+
+model BusinessMessagingConfig {
+  id          String          @id @default(uuid())
+  businessId  String
+  channel     CampaignChannel
+  provider    String          // 'MSG91' | 'META_WHATSAPP' | 'SENDGRID'
+  isEnabled   Boolean         @default(true)
+  credentials Json            // Encrypted / secured server-side API keys, tokens
+  settings    Json?           // Non-secret settings: senderId, fromEmail, fromName, templateId, etc.
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt @default(now())
+
+  business    Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, channel])
+  @@index([businessId, channel, isEnabled])
+  @@map("business_messaging_configs")
+}
+
+model ProviderDeliveryEvent {
+  id                String          @id @default(uuid())
+  deliveryId        String?
+  businessId        String?
+  provider          String          // 'MSG91' | 'META_WHATSAPP' | 'SENDGRID'
+  channel           CampaignChannel
+  providerMessageId String
+  eventType         String          // 'DELIVERED' | 'SENT' | 'FAILED' | 'BOUNCED' | 'READ'
+  rawPayload        Json?
+  idempotencyKey    String?         @unique
+  createdAt         DateTime        @default(now())
+
+  delivery          CampaignDelivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  business          Business?         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([providerMessageId])
+  @@index([businessId, providerMessageId])
+  @@index([deliveryId])
+  @@map("provider_delivery_events")
+}
+
+// ============================================================================
+// 14. CAMPAIGN ANALYTICS, TRACKING & CONVERSION ATTRIBUTION (PHASE 26)
+// ============================================================================
+
+model CampaignAnalyticsEvent {
+  id                  String             @id @default(uuid())
+  businessId          String
+  campaignId          String
+  campaignExecutionId String?
+  campaignDeliveryId  String?
+  customerId          String?
+  channel             CampaignChannel
+  eventType           String             // 'SENT' | 'DELIVERED' | 'FAILED' | 'BOUNCED' | 'DROPPED' | 'OPENED' | 'CLICKED' | 'READ' | 'SPAM_REPORTED' | 'UNSUBSCRIBED' | 'CONVERTED'
+  provider            String?            // 'MSG91' | 'META_WHATSAPP' | 'SENDGRID' | 'SYSTEM'
+  providerEventId     String?
+  idempotencyKey      String?            @unique
+  metadata            Json?
+  occurredAt          DateTime           @default(now())
+  createdAt           DateTime           @default(now())
+
+  business            Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign            Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignDelivery    CampaignDelivery?  @relation(fields: [campaignDeliveryId], references: [id], onDelete: SetNull)
+  customer            Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, eventType, occurredAt])
+  @@index([businessId, eventType, occurredAt])
+  @@index([campaignDeliveryId])
+  @@index([customerId])
+  @@index([providerEventId])
+  @@map("campaign_analytics_events")
+}
+
+model CampaignTrackingLink {
+  id               String               @id @default(uuid())
+  businessId       String
+  campaignId       String
+  deliveryId       String?
+  customerId       String?
+  trackingCode     String               @unique
+  originalUrl      String
+  clickCount       Int                  @default(0)
+  uniqueClickCount Int                  @default(0)
+  lastClickedAt    DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt @default(now())
+
+  business         Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign         Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  delivery         CampaignDelivery?    @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  clicks           CampaignClickEvent[]
+
+  @@index([businessId, campaignId])
+  @@index([deliveryId])
+  @@map("campaign_tracking_links")
+}
+
+model CampaignClickEvent {
+  id             String               @id @default(uuid())
+  trackingLinkId String
+  businessId     String
+  campaignId     String
+  deliveryId     String?
+  customerId     String?
+  ipAddress      String?
+  userAgent      String?
+  clickedAt      DateTime             @default(now())
+
+  trackingLink   CampaignTrackingLink @relation(fields: [trackingLinkId], references: [id], onDelete: Cascade)
+
+  @@index([trackingLinkId, customerId])
+  @@index([campaignId, clickedAt])
+  @@index([businessId])
+  @@map("campaign_click_events")
+}
+
+model CampaignConversion {
+  id                    String            @id @default(uuid())
+  businessId            String
+  campaignId            String
+  campaignDeliveryId    String
+  customerId            String
+  conversionType        String            // 'RETURN_VISIT' | 'LOYALTY_STAMP' | 'LOYALTY_POINTS' | 'REWARD_REDEMPTION' | 'OFFER_REDEMPTION' | 'CUSTOMER_REACTIVATED' | 'PURCHASE_RECORDED'
+  sourceEventId         String?
+  attributionWindowDays Int               @default(14)
+  occurredAt            DateTime          @default(now())
+  idempotencyKey        String            @unique
+  metadata              Json?
+  createdAt             DateTime          @default(now())
+
+  business              Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign              Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  delivery              CampaignDelivery  @relation(fields: [campaignDeliveryId], references: [id], onDelete: Cascade)
+  customer              Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, campaignId, occurredAt])
+  @@index([campaignDeliveryId])
+  @@index([customerId])
+  @@index([conversionType])
+  @@map("campaign_conversions")
+}
+
+// ============================================================================
+// 17. MANAGED BUSINESS PROVISIONING & CLIENT ONBOARDING
+// ============================================================================
+
+enum OnboardingRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PROVISIONED
+}
+
+model BusinessOnboardingRequest {
+  id                    String                  @id @default(uuid())
+  businessName          String
+  businessCategory      BusinessCategory        @default(CAFE)
+  businessDescription   String?
+  ownerName             String
+  ownerEmail            String
+  ownerPhone            String
+  country               String                  @default("IN")
+  city                  String
+  address               String
+  state                 String?
+  postalCode            String?
+  website               String?
+  businessPhone         String?
+  estimatedBranches     Int                     @default(1)
+  logoUrl               String?
+  primaryColor          String?                 @default("#4F6BFF")
+  themePreset           String?                 @default("modern")
+  status                OnboardingRequestStatus @default(PENDING)
+  notes                 String?
+  rejectionReason       String?
+  reviewedAt            DateTime?
+  reviewedByUserId      String?
+  provisionedAt         DateTime?
+  provisionedBusinessId String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  reviewedBy            User?                   @relation("RequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  provisionedBusiness   Business?               @relation("ProvisionedFromRequest", fields: [provisionedBusinessId], references: [id], onDelete: SetNull)
+  invitations           OwnerInvitation[]
+
+  @@index([status, createdAt])
+  @@index([ownerEmail])
+  @@map("business_onboarding_requests")
+}
+
+model OwnerInvitation {
+  id                    String                     @id @default(uuid())
+  businessId            String
+  userId                String
+  onboardingRequestId   String?
+  tokenHash             String                     @unique
+  expiresAt             DateTime
+  usedAt                DateTime?
+  sentAt                DateTime?
+  createdByUserId       String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  business              Business                   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user                  User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  onboardingRequest     BusinessOnboardingRequest? @relation(fields: [onboardingRequestId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([tokenHash, expiresAt])
+  @@map("owner_invitations")
+}
+
+
 

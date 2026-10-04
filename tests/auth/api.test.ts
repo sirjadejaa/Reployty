@@ -1,6 +1,8 @@
 import http from 'http';
+import { startTestServer, TestServerContext } from '../e2e/test_helpers';
 
-const BASE_URL = 'http://localhost:3000';
+let serverCtx: TestServerContext | null = null;
+let baseUrl = 'http://localhost:3000';
 
 let testPassed = 0;
 let testFailed = 0;
@@ -16,7 +18,7 @@ function assert(condition: boolean, name: string, detail?: string) {
 }
 
 async function request(path: string, options: RequestInit = {}): Promise<{ status: number; headers: Headers; data: any; cookie?: string }> {
-  const url = `${BASE_URL}${path}`;
+  const url = `${baseUrl}${path}`;
   const res = await fetch(url, options);
   let data: any = null;
   const contentType = res.headers.get('content-type');
@@ -35,6 +37,14 @@ async function runApiSuite() {
   console.log('======================================================\n');
 
   try {
+    try {
+      const ping = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(500) });
+      if (!ping.ok) throw new Error('Not running');
+    } catch {
+      serverCtx = await startTestServer();
+      baseUrl = serverCtx.baseUrl;
+    }
+
     // 1. Unauthenticated request to /api/auth/me should return 401
     console.log('[1] Unauthenticated Access Guard:');
     const unauthMe = await request('/api/auth/me');
@@ -151,11 +161,16 @@ async function runApiSuite() {
   } catch (err) {
     console.error('API test failed with error:', err);
     testFailed++;
+  } finally {
+    if (serverCtx) {
+      await serverCtx.stop().catch(() => {});
+    }
+
+    console.log('\n======================================================');
+    console.log(`API TEST SUITE FINISHED: ${testPassed} PASSED, ${testFailed} FAILED`);
+    console.log('======================================================\n');
   }
 
-  console.log('\n======================================================');
-  console.log(`API TEST SUITE FINISHED: ${testPassed} PASSED, ${testFailed} FAILED`);
-  console.log('======================================================\n');
 
   if (testFailed > 0) {
     process.exit(1);

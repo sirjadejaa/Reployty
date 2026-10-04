@@ -247,8 +247,15 @@ async function runBusinessSuite() {
     assert(typeof dashboardData.metrics.totalCustomers === 'number', 'Real customer count calculated');
     assert(typeof dashboardData.metrics.activeBranches === 'number', 'Real branch count calculated');
     assert(typeof dashboardData.metrics.staffMembers === 'number', 'Real staff count calculated');
+    assert(typeof dashboardData.metrics.loyaltyPrograms === 'number', 'Real loyalty program count calculated');
+    if (dashboardData.loyaltyProgram) {
+      assert(dashboardData.loyaltyProgram.status === 'ACTIVE', 'Active loyalty program returned in dashboard');
+      assert(typeof dashboardData.loyaltyProgram.name === 'string', 'Loyalty program has real name');
+      assert(typeof dashboardData.loyaltyProgram.activeCardsCount === 'number', 'Active cards count is real number');
+    }
     assert(Array.isArray(dashboardData.recentActivity), 'Recent audit trail returned as array');
     assert(dashboardData.onboarding.totalSteps === 6, 'Onboarding checklist has 6 steps');
+
 
     console.log('\n[7] HTTP REST API & Multi-Tenant Security Gates:');
     // 7.1 Unauthenticated requests to /api/business/* return 401

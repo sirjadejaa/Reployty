@@ -26,6 +26,7 @@ import { BranchesView } from './views/settings/BranchesView';
 import { StaffManagementView } from './views/settings/StaffManagementView';
 import { BrandingView } from './views/settings/BrandingView';
 import { BusinessSettingsView } from './views/settings/BusinessSettingsView';
+import { BusinessMessagingView } from './views/settings/BusinessMessagingView';
 import { CustomerPwaView } from './views/customer/CustomerPwaView';
 import { BusinessLoyaltyView } from './views/business/BusinessLoyaltyView';
 import { BusinessRewardsView } from './views/business/BusinessRewardsView';
@@ -35,8 +36,13 @@ import { BusinessOffersView } from './views/business/BusinessOffersView';
 import { BusinessReviewsView } from './views/business/BusinessReviewsView';
 import { BusinessAnalyticsView } from './views/business/BusinessAnalyticsView';
 import { BusinessBillingView } from './views/business/BusinessBillingView';
+import { BusinessCampaignsView } from './views/business/BusinessCampaignsView';
+import { BusinessAutomationsView } from './views/business/BusinessAutomationsView';
 import { AdminPlansView } from './views/admin/AdminPlansView';
 import { AdminBillingView } from './views/admin/AdminBillingView';
+import { GetStartedView } from './views/public/GetStartedView';
+import { SetupPasswordView } from './views/public/SetupPasswordView';
+import { AdminApplicationsView } from './views/admin/AdminApplicationsView';
 import { Button } from './components/ui/Button';
 import { Award, Shield, AlertTriangle } from 'lucide-react';
 
@@ -47,6 +53,7 @@ export const AppContent: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>('dashboard');
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [authView, setAuthView] = useState<'login' | 'forgot-password'>('login');
+  const [publicView, setPublicView] = useState<'none' | 'get-started' | 'setup-password'>('none');
   const [customerRoute, setCustomerRoute] = useState<{
     isCustomer: boolean;
     qrToken: string;
@@ -62,6 +69,19 @@ export const AppContent: React.FC = () => {
     const handleHashChange = () => {
       const rawHash = window.location.hash.replace('#', '');
       const [routePart, queryPart] = rawHash.split('?');
+
+      // Check Public Client Onboarding & Invitation routes (no auth required)
+      if (rawHash === 'get-started' || rawHash.startsWith('get-started?')) {
+        setPublicView('get-started');
+        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
+        return;
+      } else if (rawHash === 'setup-password' || rawHash.startsWith('setup-password?') || rawHash.startsWith('setup-password')) {
+        setPublicView('setup-password');
+        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
+        return;
+      } else {
+        setPublicView('none');
+      }
 
       // Check Customer PWA routes (strictly separate from business CRM 'customers' and 'business-customers')
       const isCustomerRoute =
@@ -111,6 +131,7 @@ export const AppContent: React.FC = () => {
         'menu',
         'reviews',
         'campaigns',
+        'automations',
         'analytics',
         'staff',
         'settings',
@@ -120,12 +141,14 @@ export const AppContent: React.FC = () => {
         'branches',
         'settings-staff',
         'settings-branding',
+        'settings-messaging',
         'design-system',
         'customer-preview',
       ];
 
       const validSuperAdminRoutes: SuperAdminRoute[] = [
         'admin-overview',
+        'admin-applications',
         'admin-businesses',
         'admin-business-detail',
         'admin-users',
@@ -133,6 +156,8 @@ export const AppContent: React.FC = () => {
         'admin-roles',
         'admin-audit-logs',
         'admin-analytics',
+        'admin-plans',
+        'admin-billing',
       ];
 
       if (hash && (validTenantRoutes.includes(hash as AdminRoute) || validSuperAdminRoutes.includes(hash as SuperAdminRoute))) {
@@ -208,13 +233,38 @@ export const AppContent: React.FC = () => {
     );
   }
 
-  // 3. Business Staff Unauthenticated Gate
+  // 3. Public Client Onboarding & Owner Setup Pages (Unauthenticated)
+  if (publicView === 'get-started') {
+    return (
+      <GetStartedView
+        onNavigateLogin={() => {
+          window.location.hash = '';
+          setPublicView('none');
+          setAuthView('login');
+        }}
+      />
+    );
+  }
+
+  if (publicView === 'setup-password') {
+    return (
+      <SetupPasswordView
+        onComplete={() => {
+          window.location.hash = 'onboarding';
+          setPublicView('none');
+        }}
+      />
+    );
+  }
+
+  // 4. Business Staff Unauthenticated Gate
   if (!isAuthenticated) {
     if (authView === 'forgot-password') {
       return <ForgotPasswordView onBackToLogin={() => setAuthView('login')} />;
     }
     return <LoginView onNavigateForgotPassword={() => setAuthView('forgot-password')} />;
   }
+
 
   // 3. Super Admin Route Gate & Rendering
   const isSuperAdminRoute = (currentRoute as string).startsWith('admin-');
@@ -299,6 +349,8 @@ export const AppContent: React.FC = () => {
       switch (currentRoute) {
         case 'admin-overview':
           return <AdminOverviewView onNavigate={handleRouteChange as any} />;
+        case 'admin-applications':
+          return <AdminApplicationsView onNavigate={handleRouteChange as any} />;
         case 'admin-businesses':
           return <AdminBusinessesView onNavigate={handleRouteChange as any} />;
         case 'admin-business-detail':
@@ -373,6 +425,8 @@ export const AppContent: React.FC = () => {
         return <StaffManagementView onNavigate={handleRouteChange as any} />;
       case 'settings-branding':
         return <BrandingView onNavigate={handleRouteChange as any} />;
+      case 'settings-messaging':
+        return <BusinessMessagingView onNavigate={handleRouteChange as any} />;
       case 'billing':
         return <BusinessBillingView onNavigate={handleRouteChange as any} />;
       case 'loyalty':
@@ -385,6 +439,10 @@ export const AppContent: React.FC = () => {
         return <BusinessCatalogView onNavigate={handleRouteChange as any} />;
       case 'reviews':
         return <BusinessReviewsView />;
+      case 'campaigns':
+        return <BusinessCampaignsView onNavigate={handleRouteChange as any} />;
+      case 'automations':
+        return <BusinessAutomationsView onNavigate={handleRouteChange as any} />;
       case 'analytics':
         return <BusinessAnalyticsView onNavigate={handleRouteChange as any} />;
       case 'design-system':

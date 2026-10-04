@@ -44,7 +44,7 @@ async function bootstrap() {
   app.use('/api', apiApp);
 
   // Health and Readiness probes at root level as well
-  app.get('/health', (_req, res) => {
+  app.get(['/health', '/health/live'], (_req, res) => {
     res.json({
       status: 'healthy',
       system: 'Reployty Multi-Tenant SaaS',
@@ -54,7 +54,7 @@ async function bootstrap() {
     });
   });
 
-  app.get('/ready', async (_req, res) => {
+  app.get(['/ready', '/health/ready'], async (_req, res) => {
     const currentDbHealth = await checkDatabaseHealth();
     const isReady = currentDbHealth.status === 'healthy';
     res.status(isReady ? 200 : 503).json({
@@ -79,7 +79,7 @@ async function bootstrap() {
     }));
 
     // SPA routing fallback: send index.html for non-API routes
-    app.get('*', (req, res, next) => {
+    app.use((req, res, next) => {
       if (req.path.startsWith('/api')) {
         return next();
       }

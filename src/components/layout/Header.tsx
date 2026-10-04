@@ -21,6 +21,7 @@ const ROUTE_TITLES: Record<AdminRoute, { title: string; breadcrumb: string }> = 
   menu: { title: 'Menu, Services & Products', breadcrumb: 'Catalog' },
   reviews: { title: 'Customer Reviews', breadcrumb: 'Reputation' },
   campaigns: { title: 'Campaigns & Retention', breadcrumb: 'Outreach' },
+  automations: { title: 'Automations Engine', breadcrumb: 'Triggers' },
   analytics: { title: 'Analytics & Insights', breadcrumb: 'Reports' },
   branches: { title: 'Branch Locations', breadcrumb: 'Business' },
   staff: { title: 'Staff & Team', breadcrumb: 'Organization' },
@@ -30,6 +31,7 @@ const ROUTE_TITLES: Record<AdminRoute, { title: string; breadcrumb: string }> = 
   'settings-branches': { title: 'Branch Management', breadcrumb: 'Settings' },
   'settings-staff': { title: 'Staff Management', breadcrumb: 'Settings' },
   'settings-branding': { title: 'Branding & Theme', breadcrumb: 'Settings' },
+  'settings-messaging': { title: 'Messaging & Providers', breadcrumb: 'Settings' },
   billing: { title: 'Billing & Subscriptions', breadcrumb: 'Settings' },
   'design-system': { title: 'Design System & Component Library', breadcrumb: 'Source of Truth' },
   'customer-preview': { title: 'Customer Experience Preview', breadcrumb: 'Mobile View' },
@@ -100,6 +102,27 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
+        {/* Simulation Environment Indicator */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '3px 9px',
+            borderRadius: '9999px',
+            backgroundColor: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            color: '#1D4ED8',
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}
+          title="Safe Demo / Simulation Mode: No real external SMS, WhatsApp, or payment charges are triggered"
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#2563EB' }} />
+          <span>Simulation</span>
+        </div>
+
         {/* Notifications */}
         <button
           className="icon-button"
@@ -114,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User avatar */}
         <Avatar name={currentUser.name} size="sm" />
       </div>
+
     </header>
   );
 };

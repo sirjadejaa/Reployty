@@ -51,12 +51,18 @@ import {
   deleteBusinessTag,
   assignCustomerTag,
   removeCustomerTag,
-  getBusinessSegments,
-  createBusinessSegment,
-  updateBusinessSegment,
-  deleteBusinessSegment,
-  getSegmentCustomers,
 } from '../services/crmService';
+import {
+  getBusinessSegments as getSegmentsList,
+  createSegment,
+  updateSegment,
+  getSegmentById,
+  archiveSegment,
+  deleteSegment,
+  previewSegmentRules,
+  getSegmentCount,
+  getSegmentMembers,
+} from '../services/segmentationService';
 import { createCustomer } from '../services/customerService';
 import {
   getCatalogOverview,
@@ -136,7 +142,75 @@ import {
   FeatureNotIncludedError,
   UsageLimitExceededError,
 } from '../services/entitlementService';
+import { requirePermission } from '../auth/tenantContext';
+import { UsageMeterService } from '../services/usageMeterService';
 import { exportRateLimiter, aiReviewGenerationLimiter } from '../auth/rateLimiter';
+import {
+  getBusinessCampaigns,
+  getCampaignById,
+  createCampaign,
+  updateCampaign,
+  setCampaignStatus,
+  deleteCampaign,
+} from '../services/campaignService';
+import { executeCampaign } from '../services/campaignExecutionService';
+import {
+  scheduleCampaign,
+  triggerSendNow,
+  cancelCampaign,
+  getCampaignSchedule,
+  getCampaignDeliveries,
+  getCampaignExecutions,
+} from '../services/campaignSchedulerService';
+import {
+  getCampaignAnalytics,
+  getCampaignConversions,
+  getCampaignTimeline,
+} from '../services/campaignAnalyticsService';
+import {
+  createTrackedLink,
+  getCampaignTrackedLinks,
+} from '../services/campaignTrackingService';
+import { getRetentionEvents, recordRetentionEvent } from '../services/retentionEventService';
+import {
+  createAutomationRule,
+  getAutomationRules,
+  getAutomationRuleById,
+  updateAutomationRule,
+  activateAutomationRule,
+  pauseAutomationRule,
+  archiveAutomationRule,
+  deleteAutomationRule,
+  getAutomationExecutions,
+  duplicateAutomationRule,
+  getAutomationRuleVersions,
+  validateAutomationWorkflow,
+  simulateAutomationWorkflow,
+  getAutomationAnalytics,
+} from '../services/automationService';
+import { recordAndProcessEvent } from '../services/automationExecutionService';
+import { SUPPORTED_TRIGGERS } from '../../types/automation';
+import {
+  createRetentionWorkflow,
+  updateRetentionWorkflow,
+  activateRetentionWorkflow,
+  pauseRetentionWorkflow,
+  archiveRetentionWorkflow,
+  getRetentionWorkflows,
+  getRetentionWorkflowById,
+  previewRetentionWorkflow,
+  simulateRetentionWorkflow,
+  processTimeBasedRetention,
+  RetentionValidationError,
+  RetentionNotFoundError,
+} from '../services/retentionWorkflowService';
+import { RETENTION_TEMPLATES } from '../../types/retention';
+import {
+  getBusinessProviderConfigs,
+  updateBusinessProviderConfig,
+  testBusinessProviderConnection,
+  toggleBusinessProviderConfig,
+} from '../services/messagingProviderService';
 
 export const businessRouter = Router();
 
@@ -811,22 +885,15 @@ businessRouter.delete('/customer-tags/:id', async (req: TenantRequest, res: Resp
   }
 });
 
-// GET /api/business/customer-segments — List business customer segments
-businessRouter.get('/customer-segments', async (req: TenantRequest, res: Response) => {
-  try {
-    const segments = await getBusinessSegments(req.tenantContext!);
-    res.json(segments);
-  } catch (err: any) {
-    const status = err.name === 'TenantAuthorizationError' ? 404 : err.name === 'PermissionDeniedError' ? 403 : 500;
-    res.status(status).json({ error: err.message, code: err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined });
-  }
-});
+// ============================================================================
+// Phase 21: Customer Segments & Dynamic Segmentation Builder Routes
+// ============================================================================
 
-// POST /api/business/customer-segments — Create customer segment
-businessRouter.post('/customer-segments', async (req: TenantRequest, res: Response) => {
+// POST /api/business/segments/preview — Preview unsaved or saved rules
+businessRouter.post('/segments/preview', async (req: TenantRequest, res: Response) => {
   try {
-    const segment = await createBusinessSegment(req.tenantContext!, req.body);
-    res.status(201).json(segment);
+    const result = await previewSegmentRules(req.tenantContext!, req.body.ruleDefinition, req.body.branchId);
+    res.json(result);
   } catch (err: any) {
     const status =
       err.name === 'TenantAuthorizationError'
@@ -838,10 +905,85 @@ businessRouter.post('/customer-segments', async (req: TenantRequest, res: Respon
   }
 });
 
-// PUT /api/business/customer-segments/:id — Update customer segment
-businessRouter.put('/customer-segments/:id', async (req: TenantRequest, res: Response) => {
+// GET /api/business/segments — List customer segments
+const listSegmentsHandler = async (req: TenantRequest, res: Response) => {
   try {
-    const segment = await updateBusinessSegment(req.tenantContext!, String(req.params.id), req.body);
+    const status = req.query.status as any;
+    const branchId = req.query.branchId as string;
+    const segments = await getSegmentsList(req.tenantContext!, { status, branchId });
+    res.json(segments);
+  } catch (err: any) {
+    const status =
+      err.name === 'TenantAuthorizationError'
+        ? 404
+        : err.name === 'PermissionDeniedError'
+        ? 403
+        : 500;
+    res.status(status).json({ error: err.message, code: err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined });
+  }
+};
+businessRouter.get('/segments', listSegmentsHandler);
+businessRouter.get('/customer-segments', listSegmentsHandler);
+
+// POST /api/business/segments — Create customer segment
+const createSegmentHandler = async (req: TenantRequest, res: Response) => {
+  try {
+    const segment = await createSegment(req.tenantContext!, req.body);
+    res.status(201).json(segment);
+  } catch (err: any) {
+    const status =
+      err.name === 'TenantAuthorizationError'
+        ? 404
+        : err.name === 'PermissionDeniedError'
+        ? 403
+        : 400;
+    res.status(status).json({ error: err.message, code: err.code || (err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined) });
+  }
+};
+businessRouter.post('/segments', createSegmentHandler);
+businessRouter.post('/customer-segments', createSegmentHandler);
+
+// GET /api/business/segments/:id — Get segment by ID
+const getSegmentHandler = async (req: TenantRequest, res: Response) => {
+  try {
+    const segment = await getSegmentById(req.tenantContext!, String(req.params.id));
+    res.json(segment);
+  } catch (err: any) {
+    const status =
+      err.name === 'TenantAuthorizationError' || err.code === 'SEGMENT_NOT_FOUND'
+        ? 404
+        : err.name === 'PermissionDeniedError'
+        ? 403
+        : 400;
+    res.status(status).json({ error: err.message, code: err.code || (err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined) });
+  }
+};
+businessRouter.get('/segments/:id', getSegmentHandler);
+businessRouter.get('/customer-segments/:id', getSegmentHandler);
+
+// PATCH & PUT /api/business/segments/:id — Update customer segment
+const updateSegmentHandler = async (req: TenantRequest, res: Response) => {
+  try {
+    const segment = await updateSegment(req.tenantContext!, String(req.params.id), req.body);
+    res.json(segment);
+  } catch (err: any) {
+    const status =
+      err.name === 'TenantAuthorizationError' || err.code === 'SEGMENT_NOT_FOUND'
+        ? 404
+        : err.name === 'PermissionDeniedError'
+        ? 403
+        : 400;
+    res.status(status).json({ error: err.message, code: err.code || (err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined) });
+  }
+};
+businessRouter.patch('/segments/:id', updateSegmentHandler);
+businessRouter.put('/segments/:id', updateSegmentHandler);
+businessRouter.put('/customer-segments/:id', updateSegmentHandler);
+
+// POST /api/business/segments/:id/archive — Archive customer segment
+businessRouter.post('/segments/:id/archive', async (req: TenantRequest, res: Response) => {
+  try {
+    const segment = await archiveSegment(req.tenantContext!, String(req.params.id));
     res.json(segment);
   } catch (err: any) {
     const status =
@@ -854,10 +996,30 @@ businessRouter.put('/customer-segments/:id', async (req: TenantRequest, res: Res
   }
 });
 
-// DELETE /api/business/customer-segments/:id — Delete customer segment
-businessRouter.delete('/customer-segments/:id', async (req: TenantRequest, res: Response) => {
+// DELETE /api/business/segments/:id — Delete customer segment
+const deleteSegmentHandler = async (req: TenantRequest, res: Response) => {
   try {
-    const result = await deleteBusinessSegment(req.tenantContext!, String(req.params.id));
+    const result = await deleteSegment(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    const status =
+      err.name === 'TenantAuthorizationError' || err.code === 'SEGMENT_NOT_FOUND'
+        ? 404
+        : err.name === 'PermissionDeniedError'
+        ? 403
+        : err.code === 'SEGMENT_IN_USE'
+        ? 409
+        : 400;
+    res.status(status).json({ error: err.message, code: err.code || (err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined) });
+  }
+};
+businessRouter.delete('/segments/:id', deleteSegmentHandler);
+businessRouter.delete('/customer-segments/:id', deleteSegmentHandler);
+
+// GET /api/business/segments/:id/count — Get segment matching customer count
+businessRouter.get('/segments/:id/count', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getSegmentCount(req.tenantContext!, String(req.params.id));
     res.json(result);
   } catch (err: any) {
     const status =
@@ -870,10 +1032,10 @@ businessRouter.delete('/customer-segments/:id', async (req: TenantRequest, res: 
   }
 });
 
-// GET /api/business/customer-segments/:id/customers — List customers matching segment
-businessRouter.get('/customer-segments/:id/customers', async (req: TenantRequest, res: Response) => {
+// GET /api/business/segments/:id/members — Get segment matching customers paginated
+const getSegmentMembersHandler = async (req: TenantRequest, res: Response) => {
   try {
-    const data = await getSegmentCustomers(req.tenantContext!, String(req.params.id), {
+    const data = await getSegmentMembers(req.tenantContext!, String(req.params.id), {
       page: req.query.page ? Number(req.query.page) : undefined,
       limit: req.query.limit ? Number(req.query.limit) : undefined,
     });
@@ -887,7 +1049,9 @@ businessRouter.get('/customer-segments/:id/customers', async (req: TenantRequest
         : 400;
     res.status(status).json({ error: err.message, code: err.code || (err.name === 'PermissionDeniedError' ? 'FORBIDDEN_PERMISSION' : undefined) });
   }
-});
+};
+businessRouter.get('/segments/:id/members', getSegmentMembersHandler);
+businessRouter.get('/customer-segments/:id/customers', getSegmentMembersHandler);
 
 // ============================================================================
 // 10. CATALOG MANAGEMENT (MENU, SERVICES, PRODUCTS)
@@ -1709,12 +1873,840 @@ businessRouter.get('/billing/payments', async (req: TenantRequest, res: Response
 // GET /api/business/billing/usage
 businessRouter.get('/billing/usage', async (req: TenantRequest, res: Response) => {
   try {
-    const usage = await getUsageAndLimits(req.tenantContext!.businessId);
+    requirePermission(req.tenantContext!, 'BILLING_VIEW');
+    const [resourceUsage, meteringSummary] = await Promise.all([
+      getUsageAndLimits(req.tenantContext!.businessId),
+      UsageMeterService.getUsageSummary(req.tenantContext!.businessId),
+    ]);
+    res.json({
+      ...resourceUsage,
+      metering: meteringSummary,
+      meters: meteringSummary.meters,
+      channels: meteringSummary.channels,
+      billingPeriod: meteringSummary.billingPeriod,
+      totalEstimatedOverageCostMinor: meteringSummary.totalEstimatedOverageCostMinor,
+      currency: meteringSummary.currency,
+    });
+  } catch (err: any) {
+    handleBillingError(err, res);
+  }
+});
+
+// GET /api/business/billing/usage/by-campaign/:campaignId
+businessRouter.get('/billing/usage/by-campaign/:campaignId', async (req: TenantRequest, res: Response) => {
+  try {
+    requirePermission(req.tenantContext!, 'BILLING_VIEW');
+    const usage = await UsageMeterService.getCampaignUsage(
+      req.tenantContext!.businessId,
+      String(req.params.campaignId)
+    );
     res.json(usage);
   } catch (err: any) {
     handleBillingError(err, res);
   }
 });
+
+// GET /api/business/billing/usage/history
+businessRouter.get('/billing/usage/history', async (req: TenantRequest, res: Response) => {
+  try {
+    requirePermission(req.tenantContext!, 'BILLING_VIEW');
+    const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+    const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+    const meterType = req.query.meterType ? (String(req.query.meterType) as any) : undefined;
+    const channel = req.query.channel ? (String(req.query.channel) as any) : undefined;
+    const campaignId = req.query.campaignId ? String(req.query.campaignId) : undefined;
+    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+
+    const history = await UsageMeterService.getUsageHistory(req.tenantContext!.businessId, {
+      page,
+      limit,
+      meterType,
+      channel,
+      campaignId,
+      startDate,
+      endDate,
+    });
+    res.json(history);
+  } catch (err: any) {
+    handleBillingError(err, res);
+  }
+});
+
+// ============================================================================
+// 10. CAMPAIGNS & RETENTION FOUNDATION (Phase 20)
+// ============================================================================
+
+function handleCampaignError(err: any, res: Response) {
+  if (err.name === 'PermissionDeniedError') {
+    res.status(403).json({ error: err.message, code: 'FORBIDDEN_PERMISSION' });
+    return;
+  }
+  if (
+    err.name === 'FeatureNotIncludedError' ||
+    err.code === 'FEATURE_NOT_INCLUDED' ||
+    err.name === 'UsageLimitExceededError' ||
+    err.code === 'LIMIT_EXCEEDED'
+  ) {
+    res.status(403).json({ error: err.message, code: err.code || 'ENTITLEMENT_FORBIDDEN' });
+    return;
+  }
+  if (
+    err.name === 'CampaignNotFoundError' ||
+    err.name === 'CampaignAnalyticsNotFoundError' ||
+    err.code === 'CAMPAIGN_NOT_FOUND' ||
+    err.name === 'TenantAuthorizationError'
+  ) {
+    res.status(404).json({ error: err.message, code: 'NOT_FOUND' });
+    return;
+  }
+  if (
+    err.name === 'CampaignValidationError' ||
+    err.code === 'CAMPAIGN_VALIDATION_ERROR' ||
+    err.name === 'RetentionEventValidationError' ||
+    err.code === 'RETENTION_EVENT_VALIDATION_ERROR' ||
+    err.name === 'AudienceResolutionError' ||
+    err.code === 'AUDIENCE_RESOLUTION_ERROR' ||
+    err.name === 'CampaignExecutionError' ||
+    err.code === 'CAMPAIGN_EXECUTION_ERROR'
+  ) {
+    res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_ERROR' });
+    return;
+  }
+  res.status(500).json({ error: err.message || 'Internal server error', code: 'INTERNAL_ERROR' });
+}
+
+// GET /api/business/campaigns
+businessRouter.get('/campaigns', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getBusinessCampaigns(req.tenantContext!, {
+      status: req.query.status as any,
+      type: req.query.type as any,
+      channel: req.query.channel as any,
+      branchId: req.query.branchId as string,
+      search: req.query.search as string,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns
+businessRouter.post('/campaigns', async (req: TenantRequest, res: Response) => {
+  try {
+    const campaign = await createCampaign(req.tenantContext!, req.body);
+    res.status(201).json(campaign);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id
+businessRouter.get('/campaigns/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const campaign = await getCampaignById(req.tenantContext!, String(req.params.id));
+    res.json(campaign);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// PATCH /api/business/campaigns/:id
+businessRouter.patch('/campaigns/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const updated = await updateCampaign(req.tenantContext!, String(req.params.id), req.body);
+    res.json(updated);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/status
+businessRouter.post('/campaigns/:id/status', async (req: TenantRequest, res: Response) => {
+  try {
+    const nextStatus = req.body.status;
+    if (!nextStatus) {
+      res.status(400).json({ error: 'Field [status] is required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+    const updated = await setCampaignStatus(req.tenantContext!, String(req.params.id), nextStatus);
+    res.json(updated);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// DELETE /api/business/campaigns/:id
+businessRouter.delete('/campaigns/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await deleteCampaign(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/simulate-run
+businessRouter.post('/campaigns/:id/simulate-run', async (req: TenantRequest, res: Response) => {
+  try {
+    const body = req.body || {};
+    const result = await executeCampaign(req.tenantContext!, {
+      campaignId: String(req.params.id),
+      cooldownHours: body.cooldownHours !== undefined ? Number(body.cooldownHours) : 24,
+      simulateDelivery: body.simulateDelivery !== false,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/schedule
+businessRouter.post('/campaigns/:id/schedule', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await scheduleCampaign(req.tenantContext!, String(req.params.id), req.body);
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/send-now
+businessRouter.post('/campaigns/:id/send-now', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await triggerSendNow(req.tenantContext!, String(req.params.id), req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/cancel
+businessRouter.post('/campaigns/:id/cancel', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await cancelCampaign(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/schedule
+businessRouter.get('/campaigns/:id/schedule', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getCampaignSchedule(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/deliveries
+businessRouter.get('/campaigns/:id/deliveries', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getCampaignDeliveries(req.tenantContext!, String(req.params.id), {
+      status: req.query.status as any,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/execution
+businessRouter.get('/campaigns/:id/execution', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getCampaignExecutions(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/analytics (Phase 26)
+businessRouter.get('/campaigns/:id/analytics', async (req: TenantRequest, res: Response) => {
+  try {
+    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+    const result = await getCampaignAnalytics(req.tenantContext!, String(req.params.id), {
+      startDate,
+      endDate,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/conversions (Phase 26)
+businessRouter.get('/campaigns/:id/conversions', async (req: TenantRequest, res: Response) => {
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+    const result = await getCampaignConversions(req.tenantContext!, String(req.params.id), {
+      limit,
+      offset,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/timeline (Phase 26)
+businessRouter.get('/campaigns/:id/timeline', async (req: TenantRequest, res: Response) => {
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const result = await getCampaignTimeline(req.tenantContext!, String(req.params.id), {
+      limit,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/campaigns/:id/links (Phase 26)
+businessRouter.post('/campaigns/:id/links', async (req: TenantRequest, res: Response) => {
+  try {
+    const { originalUrl, deliveryId, customerId } = req.body || {};
+    if (!originalUrl) {
+      res.status(400).json({ error: 'originalUrl is required', code: 'MISSING_URL' });
+      return;
+    }
+    const result = await createTrackedLink(
+      req.tenantContext!,
+      String(req.params.id),
+      originalUrl,
+      deliveryId,
+      customerId
+    );
+    res.status(201).json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/campaigns/:id/links (Phase 26)
+businessRouter.get('/campaigns/:id/links', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getCampaignTrackedLinks(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// GET /api/business/retention/events
+businessRouter.get('/retention/events', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getRetentionEvents(req.tenantContext!, {
+      customerId: req.query.customerId as string,
+      eventType: req.query.eventType as any,
+      startDate: req.query.startDate ? new Date(String(req.query.startDate)) : undefined,
+      endDate: req.query.endDate ? new Date(String(req.query.endDate)) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// POST /api/business/retention/events
+businessRouter.post('/retention/events', async (req: TenantRequest, res: Response) => {
+  try {
+    const event = await recordRetentionEvent(req.tenantContext!, {
+      customerId: req.body.customerId,
+      eventType: req.body.eventType,
+      metadata: req.body.metadata,
+    });
+    res.status(201).json(event);
+  } catch (err: any) {
+    handleCampaignError(err, res);
+  }
+});
+
+// ============================================================================
+// PHASE 23: AUTOMATION ENGINE & TRIGGER PROCESSORS
+// ============================================================================
+
+function handleAutomationError(err: any, res: Response) {
+  if (err.name === 'PermissionDeniedError') {
+    res.status(403).json({ error: err.message, code: 'FORBIDDEN_PERMISSION' });
+    return;
+  }
+  if (err.name === 'AutomationNotFoundError' || err.code === 'AUTOMATION_NOT_FOUND') {
+    res.status(404).json({ error: err.message, code: 'NOT_FOUND' });
+    return;
+  }
+  if (
+    err.name === 'AutomationValidationError' ||
+    err.code === 'AUTOMATION_VALIDATION_ERROR' ||
+    err.name === 'AutomationStateError' ||
+    err.code === 'AUTOMATION_STATE_ERROR' ||
+    err.name === 'SegmentValidationError' ||
+    err.code === 'SEGMENT_VALIDATION_ERROR'
+  ) {
+    res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_ERROR' });
+    return;
+  }
+  console.error('Automation Route Error:', err);
+  res.status(500).json({ error: 'Internal automation engine error', code: 'INTERNAL_ERROR' });
+}
+
+// GET /api/business/automations/triggers
+businessRouter.get('/automations/triggers', async (_req: TenantRequest, res: Response) => {
+  res.json({ triggers: SUPPORTED_TRIGGERS });
+});
+
+// GET /api/business/automations/executions
+businessRouter.get('/automations/executions', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getAutomationExecutions(req.tenantContext!, {
+      ruleId: req.query.ruleId as string,
+      customerId: req.query.customerId as string,
+      status: req.query.status as any,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/trigger
+businessRouter.post('/automations/trigger', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await recordAndProcessEvent(req.tenantContext!, {
+      customerId: req.body.customerId,
+      eventType: req.body.eventType,
+      branchId: req.body.branchId,
+      entityType: req.body.entityType,
+      entityId: req.body.entityId,
+      metadata: req.body.metadata,
+      occurredAt: req.body.occurredAt ? new Date(req.body.occurredAt) : undefined,
+    });
+    res.status(201).json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// GET /api/business/automations
+businessRouter.get('/automations', async (req: TenantRequest, res: Response) => {
+  try {
+    const rules = await getAutomationRules(req.tenantContext!, {
+      status: req.query.status as any,
+      branchId: req.query.branchId as string,
+      triggerEvent: req.query.triggerEvent as any,
+    });
+    res.json({ rules });
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations
+businessRouter.post('/automations', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await createAutomationRule(req.tenantContext!, req.body);
+    res.status(201).json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// GET /api/business/automations/:id
+businessRouter.get('/automations/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await getAutomationRuleById(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// PATCH /api/business/automations/:id
+businessRouter.patch('/automations/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await updateAutomationRule(req.tenantContext!, String(req.params.id), req.body);
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// DELETE /api/business/automations/:id
+businessRouter.delete('/automations/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await deleteAutomationRule(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/activate
+businessRouter.post('/automations/:id/activate', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await activateAutomationRule(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/pause
+businessRouter.post('/automations/:id/pause', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await pauseAutomationRule(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/archive
+businessRouter.post('/automations/:id/archive', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await archiveAutomationRule(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// GET /api/business/automations/:id/executions
+businessRouter.get('/automations/:id/executions', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getAutomationExecutions(req.tenantContext!, {
+      ruleId: String(req.params.id),
+      status: req.query.status as any,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/validate (Standalone workflow validation)
+businessRouter.post('/automations/validate', async (req: TenantRequest, res: Response) => {
+  try {
+    const definition = req.body?.workflowDefinition || req.body;
+    if (!definition || !Array.isArray(definition.nodes)) {
+      return res.status(400).json({ error: 'Invalid workflow definition format', code: 'INVALID_DEFINITION' });
+    }
+    const result = await validateAutomationWorkflow(req.tenantContext!, definition);
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/validate (Rule workflow validation)
+businessRouter.post('/automations/:id/validate', async (req: TenantRequest, res: Response) => {
+  try {
+    let definition = req.body?.workflowDefinition || (req.body?.nodes ? req.body : undefined);
+    if (!definition) {
+      const rule = await getAutomationRuleById(req.tenantContext!, String(req.params.id));
+      definition = rule.draftDefinition || rule.workflowDefinition;
+    }
+    if (!definition) {
+      return res.status(400).json({ error: 'No workflow definition provided or found on rule', code: 'DEFINITION_REQUIRED' });
+    }
+    const result = await validateAutomationWorkflow(req.tenantContext!, definition);
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/test (Dry-run simulation)
+businessRouter.post('/automations/:id/test', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await simulateAutomationWorkflow(req.tenantContext!, String(req.params.id), req.body);
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/simulate (Alias for dry-run simulation)
+businessRouter.post('/automations/:id/simulate', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await simulateAutomationWorkflow(req.tenantContext!, String(req.params.id), req.body);
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/duplicate
+businessRouter.post('/automations/:id/duplicate', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await duplicateAutomationRule(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// GET /api/business/automations/:id/versions
+businessRouter.get('/automations/:id/versions', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getAutomationRuleVersions(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// POST /api/business/automations/:id/workflow (Save workflow canvas draft or definition)
+businessRouter.post('/automations/:id/workflow', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await updateAutomationRule(req.tenantContext!, String(req.params.id), {
+      workflowDefinition: req.body?.workflowDefinition || (req.body?.nodes ? req.body : undefined),
+      draftDefinition: req.body?.draftDefinition,
+    });
+    res.json(rule);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+// GET /api/business/automations/:id/analytics
+businessRouter.get('/automations/:id/analytics', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getAutomationAnalytics(req.tenantContext!, String(req.params.id));
+    res.json(result);
+  } catch (err: any) {
+    handleAutomationError(err, res);
+  }
+});
+
+
+// ============================================================================
+// 12. RETENTION WORKFLOWS (Phase 24: Inactivity, Win-back, Birthday)
+// ============================================================================
+
+function handleRetentionError(err: any, res: Response) {
+  if (err instanceof RetentionValidationError) {
+    return res.status(400).json({ error: err.message, code: err.code });
+  }
+  if (err instanceof RetentionNotFoundError) {
+    return res.status(404).json({ error: err.message, code: err.code });
+  }
+  if (err.name === 'PermissionDeniedError' || err.name === 'TenantAuthorizationError') {
+    return res.status(403).json({ error: err.message, code: 'PERMISSION_DENIED' });
+  }
+  console.error('Retention endpoint error', err);
+  return res.status(500).json({ error: err.message || 'Internal server error' });
+}
+
+// GET /api/business/retention/templates
+businessRouter.get('/retention/templates', async (_req: TenantRequest, res: Response) => {
+  res.json({ templates: RETENTION_TEMPLATES });
+});
+
+// GET /api/business/retention/workflows
+businessRouter.get('/retention/workflows', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getRetentionWorkflows(req.tenantContext!, {
+      workflowType: req.query.workflowType as any,
+      status: req.query.status as any,
+      branchId: req.query.branchId as string,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/workflows
+businessRouter.post('/retention/workflows', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await createRetentionWorkflow(req.tenantContext!, req.body);
+    res.status(201).json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/preview
+businessRouter.post('/retention/preview', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await previewRetentionWorkflow(req.tenantContext!, req.body);
+    res.json(result);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/simulate
+businessRouter.post('/retention/simulate', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await simulateRetentionWorkflow(req.tenantContext!, req.body);
+    res.json(result);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/process
+businessRouter.post('/retention/process', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await processTimeBasedRetention({
+      businessId: req.tenantContext!.businessId,
+      workflowType: req.body.workflowType,
+      limitPerWorkflow: req.body.limit ? Number(req.body.limit) : 50,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// GET /api/business/retention/workflows/:id
+businessRouter.get('/retention/workflows/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await getRetentionWorkflowById(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// PATCH /api/business/retention/workflows/:id
+businessRouter.patch('/retention/workflows/:id', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await updateRetentionWorkflow(req.tenantContext!, String(req.params.id), req.body);
+    res.json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/workflows/:id/activate
+businessRouter.post('/retention/workflows/:id/activate', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await activateRetentionWorkflow(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/workflows/:id/pause
+businessRouter.post('/retention/workflows/:id/pause', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await pauseRetentionWorkflow(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// POST /api/business/retention/workflows/:id/archive
+businessRouter.post('/retention/workflows/:id/archive', async (req: TenantRequest, res: Response) => {
+  try {
+    const rule = await archiveRetentionWorkflow(req.tenantContext!, String(req.params.id));
+    res.json(rule);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// GET /api/business/retention/workflows/:id/executions
+businessRouter.get('/retention/workflows/:id/executions', async (req: TenantRequest, res: Response) => {
+  try {
+    const result = await getAutomationExecutions(req.tenantContext!, {
+      ruleId: String(req.params.id),
+      status: req.query.status as any,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    handleRetentionError(err, res);
+  }
+});
+
+// ============================================================================
+// PHASE 25: MESSAGING PROVIDER CONFIGURATION ROUTES
+// ============================================================================
+
+// GET /api/business/messaging/config
+businessRouter.get('/messaging/config', async (req: TenantRequest, res: Response) => {
+  try {
+    const configs = await getBusinessProviderConfigs(req.tenantContext!);
+    res.json({ configs });
+  } catch (err: any) {
+    if (err.name === 'PermissionDeniedError' || err.name === 'TenantAuthorizationError') {
+      res.status(403).json({ error: err.message, code: 'PERMISSION_DENIED' });
+      return;
+    }
+    res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+// POST /api/business/messaging/config
+businessRouter.post('/messaging/config', async (req: TenantRequest, res: Response) => {
+  try {
+    const updated = await updateBusinessProviderConfig(req.tenantContext!, req.body);
+    res.status(200).json(updated);
+  } catch (err: any) {
+    if (err.name === 'PermissionDeniedError' || err.name === 'TenantAuthorizationError') {
+      res.status(403).json({ error: err.message, code: 'PERMISSION_DENIED' });
+      return;
+    }
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/business/messaging/config/:channel/test
+businessRouter.post('/messaging/config/:channel/test', async (req: TenantRequest, res: Response) => {
+  try {
+    const channel = String(req.params.channel).toUpperCase() as any;
+    const result = await testBusinessProviderConnection(req.tenantContext!, channel, req.body?.credentials);
+    res.status(200).json(result);
+  } catch (err: any) {
+    if (err.name === 'PermissionDeniedError' || err.name === 'TenantAuthorizationError') {
+      res.status(403).json({ error: err.message, code: 'PERMISSION_DENIED' });
+      return;
+    }
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/business/messaging/config/:channel/toggle
+businessRouter.post('/messaging/config/:channel/toggle', async (req: TenantRequest, res: Response) => {
+  try {
+    const channel = String(req.params.channel).toUpperCase() as any;
+    const isEnabled = req.body?.isEnabled !== undefined ? Boolean(req.body.isEnabled) : true;
+    const result = await toggleBusinessProviderConfig(req.tenantContext!, channel, isEnabled);
+    res.status(200).json(result);
+  } catch (err: any) {
+    if (err.name === 'PermissionDeniedError' || err.name === 'TenantAuthorizationError') {
+      res.status(403).json({ error: err.message, code: 'PERMISSION_DENIED' });
+      return;
+    }
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
 
 
 

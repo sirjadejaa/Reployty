@@ -627,3 +627,43 @@
     display: block;
   }
 }
+
+/* ==========================================================================
+   Responsive Viewport & Utility Helpers
+   ========================================================================== */
+
+.hidden {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .lg\:block {
+    display: block !important;
+  }
+  .lg\:hidden {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .lg\:hidden {
+    display: flex !important;
+  }
+}
+
+.space-y-2 > * + * {
+  margin-top: 8px !important;
+}
+
+.space-y-3 > * + * {
+  margin-top: 12px !important;
+}
+
+.space-y-4 > * + * {
+  margin-top: 16px !important;
+}
+
+.space-y-6 > * + * {
+  margin-top: 24px !important;
+}
+

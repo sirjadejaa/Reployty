@@ -18,6 +18,9 @@ import {
   ShieldAlert,
   Store,
   CreditCard,
+  Megaphone,
+  Zap,
+  MessageSquare,
 } from 'lucide-react';
 import { AdminRoute } from '../../types/loyalty';
 import { useTenant } from '../../context/TenantContext';
@@ -69,6 +72,8 @@ const NAV_SECTIONS: NavSectionConfig[] = [
     items: [
       { id: 'offers', label: 'Special Offers', icon: <Tag size={18} /> },
       { id: 'reviews', label: 'Customer Reviews', icon: <Star size={18} /> },
+      { id: 'campaigns', label: 'Campaigns', icon: <Megaphone size={18} /> },
+      { id: 'automations', label: 'Automations', icon: <Zap size={18} /> },
     ],
   },
   {
@@ -91,6 +96,7 @@ const NAV_SECTIONS: NavSectionConfig[] = [
       { id: 'billing', label: 'Billing & Plans', icon: <CreditCard size={18} /> },
       { id: 'settings-business', label: 'Business Profile', icon: <Settings size={18} /> },
       { id: 'settings-branding', label: 'Branding & Theme', icon: <Sparkles size={18} /> },
+      { id: 'settings-messaging', label: 'Messaging Providers', icon: <MessageSquare size={18} /> },
       { id: 'settings', label: 'All Settings', icon: <Settings size={18} /> },
     ],
   },

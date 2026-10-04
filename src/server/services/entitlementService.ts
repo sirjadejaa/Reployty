@@ -13,7 +13,8 @@ export type FeatureKey =
   | 'STAFF'
   | 'ANALYTICS'
   | 'AI_REVIEW_ASSISTANT'
-  | 'EXPORTS';
+  | 'EXPORTS'
+  | 'CAMPAIGNS';
 
 export type LimitKey =
   | 'maxCustomers'
@@ -21,7 +22,8 @@ export type LimitKey =
   | 'maxStaff'
   | 'maxRewards'
   | 'maxOffers'
-  | 'monthlyAiDrafts';
+  | 'monthlyAiDrafts'
+  | 'maxActiveCampaigns';
 
 export class FeatureNotIncludedError extends Error {
   code = 'FEATURE_NOT_INCLUDED';
@@ -169,6 +171,11 @@ export async function hasFeature(businessId: string, featureKey: FeatureKey): Pr
   }
 
   const features = (sub.plan.features as string[]) || [];
+
+  if (featureKey === 'CAMPAIGNS') {
+    return features.includes('CAMPAIGNS') || sub.plan.slug !== 'free';
+  }
+
   return features.includes(featureKey);
 }
 
@@ -202,6 +209,7 @@ export async function getUsageAndLimits(businessId: string) {
     maxRewards: planLimits.maxRewards ?? (plan.slug === 'free' ? 2 : null),
     maxOffers: planLimits.maxOffers ?? (plan.slug === 'free' ? 1 : null),
     monthlyAiDrafts: planLimits.monthlyAiDrafts ?? (plan.slug === 'growth' || plan.slug === 'enterprise' ? 100 : 0),
+    maxActiveCampaigns: planLimits.maxActiveCampaigns ?? (plan.slug === 'free' ? 0 : plan.slug === 'starter' ? 5 : 25),
   };
 
   // Live database counts
@@ -212,6 +220,7 @@ export async function getUsageAndLimits(businessId: string) {
     activeRewardCount,
     activeOfferCount,
     monthlyAiDraftsCount,
+    activeCampaignCount,
   ] = await Promise.all([
     prisma.customer.count({ where: { businessId } }),
     prisma.branch.count({ where: { businessId, status: { not: 'INACTIVE' } } }),
@@ -219,6 +228,7 @@ export async function getUsageAndLimits(businessId: string) {
     prisma.reward.count({ where: { businessId, status: 'ACTIVE' } }),
     prisma.offer.count({ where: { businessId, status: 'ACTIVE' } }),
     prisma.reviewGeneration.count({ where: { businessId, createdAt: { gte: startOfMonth } } }),
+    prisma.campaign.count({ where: { businessId, status: 'ACTIVE' } }),
   ]);
 
   const usage: Record<LimitKey, number> = {
@@ -228,6 +238,7 @@ export async function getUsageAndLimits(businessId: string) {
     maxRewards: activeRewardCount,
     maxOffers: activeOfferCount,
     monthlyAiDrafts: monthlyAiDraftsCount,
+    maxActiveCampaigns: activeCampaignCount,
   };
 
   return {

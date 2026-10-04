@@ -17,6 +17,12 @@ import {
   Download,
   Clock,
   RotateCcw,
+  MessageSquare,
+  Mail,
+  Send,
+  Cpu,
+  History,
+  RefreshCw,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -104,6 +110,34 @@ interface BillingData {
     issuedAt: string;
     paidAt: string | null;
   }>;
+  usageSummary?: {
+    billingPeriod: {
+      start: string;
+      end: string;
+      interval: string;
+      status: string;
+    };
+    meters: Array<{
+      meterType: string;
+      name: string;
+      used: number;
+      included: number | null;
+      remaining: number | null;
+      overage: number;
+      utilizationPercent: number;
+      status: 'NORMAL' | 'NEAR_LIMIT' | 'LIMIT_REACHED' | 'OVERAGE' | 'BLOCKED';
+      policy: 'BLOCK' | 'ALLOW_OVERAGE' | 'WARN_ONLY';
+      overagePriceMinor: number | null;
+      estimatedOverageCostMinor: number;
+    }>;
+    channels: {
+      SMS: number;
+      WHATSAPP: number;
+      EMAIL: number;
+    };
+    totalEstimatedOverageCostMinor: number;
+    currency: string;
+  };
 }
 
 const FEATURE_CATALOG: Array<{ key: string; label: string; icon: React.ElementType }> = [
@@ -136,6 +170,30 @@ export const BusinessBillingView: React.FC<BusinessBillingViewProps> = () => {
   // Cancellation Modal State
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Usage Ledger History State
+  const [usageHistory, setUsageHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fetchUsageHistory = async (page = 1) => {
+    try {
+      setHistoryLoading(true);
+      const res = await fetch(`/api/business/billing/usage/history?page=${page}&limit=10`);
+      if (res.ok) {
+        const json = await res.json();
+        setUsageHistory(json.events || []);
+        setHistoryTotal(json.pagination?.total || 0);
+        setHistoryPage(page);
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   // Fetch billing overview
   const fetchBillingData = async () => {
@@ -430,7 +488,257 @@ export const BusinessBillingView: React.FC<BusinessBillingViewProps> = () => {
         </div>
       </Card>
 
-      {/* 2. LIVE USAGE & LIMITS DASHBOARD */}
+      {/* 2. MESSAGING & CAMPAIGN USAGE METERING (Phase 28) */}
+      {data.usageSummary && (
+        <div style={{ marginBottom: '32px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '14px',
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: '17px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Messaging & Campaign Usage
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                Consumption for current period ({new Date(data.usageSummary.billingPeriod.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(data.usageSummary.billingPeriod.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: '16px',
+                  backgroundColor: data.usageSummary.totalEstimatedOverageCostMinor > 0 ? '#FEF2F2' : '#EFF6FF',
+                  color: data.usageSummary.totalEstimatedOverageCostMinor > 0 ? '#DC2626' : '#2563EB',
+                  border: `1px solid ${data.usageSummary.totalEstimatedOverageCostMinor > 0 ? '#FECACA' : '#BFDBFE'}`,
+                }}
+              >
+                {data.usageSummary.totalEstimatedOverageCostMinor > 0
+                  ? `Est. Overage: ${formatPrice(data.usageSummary.totalEstimatedOverageCostMinor, data.usageSummary.currency)}`
+                  : 'Included Allowance Active'}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!showHistory) fetchUsageHistory(1);
+                  setShowHistory(!showHistory);
+                }}
+              >
+                <History size={14} style={{ marginRight: '6px' }} />
+                {showHistory ? 'Hide History' : 'Usage Ledger'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Meter Cards Grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '16px',
+              marginBottom: '20px',
+            }}
+          >
+            {data.usageSummary.meters.map((meter) => {
+              const isUnlimited = meter.included === null;
+              const isBlocked = meter.status === 'BLOCKED';
+              const isOverage = meter.status === 'OVERAGE';
+              const isNearLimit = meter.status === 'NEAR_LIMIT';
+              const isLimitReached = meter.status === 'LIMIT_REACHED';
+
+              let barColor = 'var(--primary-color)';
+              if (isBlocked || isOverage) barColor = '#EF4444';
+              else if (isLimitReached || isNearLimit) barColor = '#F59E0B';
+
+              let MeterIcon = MessageSquare;
+              if (meter.meterType === 'SMS_MESSAGE') MeterIcon = MessageSquare;
+              else if (meter.meterType === 'WHATSAPP_MESSAGE') MeterIcon = Send;
+              else if (meter.meterType === 'EMAIL_MESSAGE') MeterIcon = Mail;
+              else if (meter.meterType === 'AUTOMATION_EXECUTION') MeterIcon = Cpu;
+              else if (meter.meterType === 'CAMPAIGN_DELIVERY') MeterIcon = Layers;
+
+              return (
+                <Card key={meter.meterType} style={{ padding: '18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div
+                        style={{
+                          padding: '6px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--background-secondary)',
+                          color: barColor,
+                        }}
+                      >
+                        <MeterIcon size={16} />
+                      </div>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {meter.name}
+                      </span>
+                    </div>
+
+                    {isBlocked && (
+                      <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: 600, backgroundColor: '#FEF2F2', padding: '2px 6px', borderRadius: '4px' }}>
+                        Blocked
+                      </span>
+                    )}
+                    {isOverage && (
+                      <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: 600, backgroundColor: '#FEF2F2', padding: '2px 6px', borderRadius: '4px' }}>
+                        +{meter.overage} Overage
+                      </span>
+                    )}
+                    {isNearLimit && (
+                      <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 600, backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
+                        Near Limit
+                      </span>
+                    )}
+                    {isLimitReached && !isBlocked && !isOverage && (
+                      <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 600, backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
+                        At Allowance
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {meter.used.toLocaleString()}
+                    </span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                      / {isUnlimited ? 'Unlimited' : meter.included?.toLocaleString()}
+                    </span>
+                    {!isUnlimited && meter.included && meter.included > 0 && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                        {meter.utilizationPercent}%
+                      </span>
+                    )}
+                  </div>
+
+                  {!isUnlimited && meter.included && meter.included > 0 && (
+                    <div
+                      style={{
+                        height: '6px',
+                        backgroundColor: 'var(--border-color)',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(100, meter.utilizationPercent)}%`,
+                          backgroundColor: barColor,
+                          borderRadius: '4px',
+                          transition: 'width 0.3s ease',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <span>
+                      {isUnlimited
+                        ? 'Unlimited on your plan'
+                        : meter.remaining !== null && meter.remaining > 0
+                        ? `${meter.remaining.toLocaleString()} remaining`
+                        : isOverage
+                        ? `${meter.overage.toLocaleString()} beyond allowance`
+                        : 'Allowance reached'}
+                    </span>
+                    {meter.estimatedOverageCostMinor > 0 && (
+                      <span style={{ color: '#DC2626', fontWeight: 600 }}>
+                        + {formatPrice(meter.estimatedOverageCostMinor, data.usageSummary?.currency || 'INR')}
+                      </span>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Usage Ledger Historical View (Collapsible) */}
+          {showHistory && (
+            <Card style={{ padding: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Recent Metered Delivery Events ({historyTotal} total)
+                </h4>
+                <Button variant="outline" size="sm" onClick={() => fetchUsageHistory(historyPage)} disabled={historyLoading}>
+                  <RefreshCw size={13} style={{ marginRight: '4px' }} className={historyLoading ? 'animate-spin' : ''} />
+                  Refresh
+                </Button>
+              </div>
+
+              {historyLoading ? (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <Skeleton height="36px" radius="6px" />
+                  <Skeleton height="36px" radius="6px" />
+                  <Skeleton height="36px" radius="6px" />
+                </div>
+              ) : usageHistory.length === 0 ? (
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', margin: '20px 0' }}>
+                  No billable events recorded yet in the usage ledger.
+                </p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-secondary)' }}>
+                        <th style={{ padding: '8px 10px' }}>Occurred At</th>
+                        <th style={{ padding: '8px 10px' }}>Meter Type</th>
+                        <th style={{ padding: '8px 10px' }}>Channel</th>
+                        <th style={{ padding: '8px 10px' }}>Quantity</th>
+                        <th style={{ padding: '8px 10px' }}>Source</th>
+                        <th style={{ padding: '8px 10px' }}>Overage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageHistory.map((ev) => (
+                        <tr key={ev.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
+                            {new Date(ev.occurredAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                          </td>
+                          <td style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                            {ev.meterName || ev.meterType}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
+                            {ev.channel || '—'}
+                          </td>
+                          <td style={{ padding: '8px 10px', fontWeight: 600 }}>
+                            {ev.quantity}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                            {ev.sourceType}
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            {ev.isOverage ? (
+                              <span style={{ color: '#DC2626', fontWeight: 600, fontSize: '11px' }}>OVERAGE</span>
+                            ) : (
+                              <span style={{ color: '#059669', fontSize: '11px' }}>Included</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* 3. LIVE USAGE & LIMITS DASHBOARD */}
       <div style={{ marginBottom: '32px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '14px' }}>
           Resource Usage & Plan Limits

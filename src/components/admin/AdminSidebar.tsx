@@ -12,6 +12,7 @@ import {
   Shield,
   CreditCard,
   Layers,
+  ClipboardList,
 } from 'lucide-react';
 import { AdminRoute } from '../../types/admin';
 import { useAuth } from '../../context/AuthContext';
@@ -44,6 +45,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'MANAGE',
     items: [
+      { id: 'admin-applications', label: 'Applications', icon: ClipboardList },
       { id: 'admin-businesses', label: 'Businesses', icon: Building2 },
       { id: 'admin-users', label: 'Users', icon: Users },
       { id: 'admin-staff', label: 'Staff', icon: UserCheck },

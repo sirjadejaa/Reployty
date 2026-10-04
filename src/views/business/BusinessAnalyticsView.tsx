@@ -39,6 +39,7 @@ import {
   AnalyticsBarChart,
   AnalyticsDonutChart,
 } from '../../components/analytics/AnalyticsCharts';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface BranchOption {
   id: string;
@@ -51,6 +52,9 @@ export interface BusinessAnalyticsViewProps {
 }
 
 export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ onNavigate: _onNavigate }) => {
+  const isMobile = useIsMobile(640);
+  const isTablet = useIsMobile(1024);
+
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<
     'overview' | 'retention' | 'loyalty' | 'offers' | 'reviews' | 'branches'
@@ -219,24 +223,26 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
     return (
       <Card
         style={{
-          padding: '20px',
+          padding: isMobile ? '14px 14px' : '20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: isMobile ? '8px' : '12px',
           position: 'relative',
+          minWidth: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>{title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <span style={{ fontSize: isMobile ? '12px' : '13px', fontWeight: 600, color: '#64748B', lineHeight: 1.3 }}>{title}</span>
           <div
             style={{
-              padding: '6px',
+              padding: isMobile ? '5px' : '6px',
               backgroundColor: '#EEF2FF',
               color: '#4F6BFF',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             {icon}
@@ -244,7 +250,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-          <span style={{ fontSize: '28px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+          <span style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
             {prefix}
             {currentVal.toLocaleString()}
             {suffix}
@@ -252,7 +258,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
         </div>
 
         {isComparison && compareEnabled && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: isMobile ? '11px' : '12px' }}>
             {metric.delta === 0 ? (
               <span
                 style={{
@@ -264,9 +270,10 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                   backgroundColor: '#F1F5F9',
                   padding: '2px 6px',
                   borderRadius: '4px',
+                  fontSize: '11px',
                 }}
               >
-                <Minus size={12} /> 0%
+                <Minus size={11} /> 0%
               </span>
             ) : metric.delta > 0 ? (
               <span
@@ -279,9 +286,10 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                   backgroundColor: '#ECFDF5',
                   padding: '2px 6px',
                   borderRadius: '4px',
+                  fontSize: '11px',
                 }}
               >
-                <TrendingUp size={12} /> +{metric.percentChange ?? 0}%
+                <TrendingUp size={11} /> +{metric.percentChange ?? 0}%
               </span>
             ) : (
               <span
@@ -294,12 +302,13 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                   backgroundColor: '#FEF2F2',
                   padding: '2px 6px',
                   borderRadius: '4px',
+                  fontSize: '11px',
                 }}
               >
-                <TrendingDown size={12} /> {metric.percentChange ?? 0}%
+                <TrendingDown size={11} /> {metric.percentChange ?? 0}%
               </span>
             )}
-            <span style={{ color: '#94A3B8' }}>
+            <span style={{ color: '#94A3B8', fontSize: '11px' }}>
               vs prev ({prefix}
               {metric.previous.toLocaleString()}
               {suffix})
@@ -308,52 +317,74 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
         )}
 
         {tooltip && (
-          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>{tooltip}</div>
+          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', lineHeight: 1.3 }}>{tooltip}</div>
         )}
       </Card>
     );
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
+    <div
+      style={{
+        padding: isMobile ? '16px 12px calc(var(--mobile-nav-height, 64px) + 24px)' : isTablet ? '20px 20px' : '28px 32px',
+        maxWidth: '1280px',
+        margin: '0 auto',
+        fontFamily: "'Inter', sans-serif",
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isMobile ? '16px' : '24px',
+        width: '100%',
+        boxSizing: 'border-box',
+        minWidth: 0,
+      }}
+    >
       {/* Top Header */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: '16px',
-          marginBottom: '24px',
+          alignItems: isMobile ? 'stretch' : 'flex-start',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? '12px' : '16px',
+          width: '100%',
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1
             style={{
-              fontSize: '24px',
+              fontSize: isMobile ? '20px' : '24px',
               fontWeight: 700,
               color: '#0F172A',
               letterSpacing: '-0.02em',
-              margin: '0 0 6px 0',
+              margin: '0 0 4px 0',
             }}
           >
             Analytics & Business Intelligence
           </h1>
-          <p style={{ margin: 0, fontSize: '14px', color: '#64748B' }}>
+          <p style={{ margin: 0, fontSize: isMobile ? '13px' : '14px', color: '#64748B', lineHeight: 1.4 }}>
             Authoritative performance metrics, customer retention, loyalty health, and multi-branch intelligence.
           </p>
         </div>
 
         {/* Global Controls: Date Preset, Branch Filter, Compare Toggle & CSV Export */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            width: isMobile ? '100%' : 'auto',
+          }}
+        >
           {/* Preset Dropdown */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ flex: isMobile ? '1 1 calc(50% - 4px)' : 'none' }}>
             <select
               value={preset}
               onChange={(e) => setPreset(e.target.value as DateRangePreset)}
               style={{
                 height: '38px',
-                padding: '0 12px',
+                width: '100%',
+                padding: '0 10px',
                 borderRadius: '8px',
                 border: '1px solid #CBD5E1',
                 backgroundColor: '#FFFFFF',
@@ -376,45 +407,15 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
             </select>
           </div>
 
-          {/* Custom Date Pickers if custom selected */}
-          {preset === 'custom' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                style={{
-                  height: '36px',
-                  padding: '0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  fontSize: '12px',
-                }}
-              />
-              <span style={{ fontSize: '12px', color: '#64748B' }}>to</span>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                style={{
-                  height: '36px',
-                  padding: '0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  fontSize: '12px',
-                }}
-              />
-            </div>
-          )}
-
           {/* Branch Filter */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ flex: isMobile ? '1 1 calc(50% - 4px)' : 'none' }}>
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
               style={{
                 height: '38px',
-                padding: '0 12px',
+                width: '100%',
+                padding: '0 10px',
                 borderRadius: '8px',
                 border: '1px solid #CBD5E1',
                 backgroundColor: '#FFFFFF',
@@ -434,18 +435,52 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
             </select>
           </div>
 
+          {/* Custom Date Pickers if custom selected */}
+          {preset === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                style={{
+                  height: '36px',
+                  flex: isMobile ? 1 : 'none',
+                  padding: '0 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '12px',
+                }}
+              />
+              <span style={{ fontSize: '12px', color: '#64748B' }}>to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                style={{
+                  height: '36px',
+                  flex: isMobile ? 1 : 'none',
+                  padding: '0 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+          )}
+
           {/* Compare Toggle */}
           <label
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              fontSize: '13px',
+              fontSize: '12px',
               color: '#334155',
               cursor: 'pointer',
               userSelect: 'none',
               backgroundColor: '#F8FAFC',
-              padding: '8px 12px',
+              padding: '0 10px',
+              height: '38px',
               borderRadius: '8px',
               border: '1px solid #E2E8F0',
             }}
@@ -456,7 +491,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
               onChange={(e) => setCompareEnabled(e.target.checked)}
               style={{ cursor: 'pointer' }}
             />
-            Compare
+            <span>Compare</span>
           </label>
 
           {/* Refresh Button */}
@@ -465,7 +500,8 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
             size="sm"
             onClick={fetchAnalyticsData}
             disabled={isLoading}
-            style={{ height: '38px', padding: '0 12px' }}
+            style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Refresh analytics data"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
           </Button>
@@ -480,7 +516,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
               style={{ height: '38px', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <Download size={14} />
-              <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>{isExporting ? 'Exporting...' : 'Export'}</span>
               <ChevronDown size={14} />
             </Button>
 
@@ -544,11 +580,13 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '6px',
           borderBottom: '1px solid #E2E8F0',
-          marginBottom: '24px',
           overflowX: 'auto',
           paddingBottom: '2px',
+          width: '100%',
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {[
@@ -567,17 +605,18 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '10px 16px',
+                gap: '6px',
+                padding: isMobile ? '8px 12px' : '10px 16px',
                 border: 'none',
                 borderBottom: isActive ? '2px solid #4F6BFF' : '2px solid transparent',
                 backgroundColor: 'transparent',
                 color: isActive ? '#4F6BFF' : '#64748B',
                 fontWeight: isActive ? 600 : 500,
-                fontSize: '14px',
+                fontSize: isMobile ? '13px' : '14px',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
+                flexShrink: 0,
               }}
             >
               {tab.icon}
@@ -628,13 +667,17 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 1: OVERVIEW */}
       {!isLoading && activeTab === 'overview' && overview && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
           {/* Top KPI Cards Grid */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: isMobile
+                ? 'repeat(2, minmax(0, 1fr))'
+                : isTablet
+                ? 'repeat(3, minmax(0, 1fr))'
+                : 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: isMobile ? '10px' : '16px',
             }}
           >
             {renderKpiCard('Total Customers', overview.metrics.totalCustomers, <Users size={18} />)}
@@ -649,10 +692,10 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </div>
 
           {/* Activity Timeline Chart */}
-          <Card style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+                <h3 style={{ margin: 0, fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
                   Customer Visits & Activity Timeline
                 </h3>
                 <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748B' }}>
@@ -664,7 +707,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
             <AnalyticsAreaChart
               data={overview.trends.visitsTimeline}
-              height={260}
+              height={isMobile ? 210 : 260}
               valueSuffix=" visits"
             />
           </Card>
@@ -674,12 +717,12 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: '20px',
+                gridTemplateColumns: isTablet ? '1fr' : 'repeat(2, 1fr)',
+                gap: isMobile ? '14px' : '20px',
               }}
             >
               {/* Customer Lifecycle Statuses */}
-              <Card style={{ padding: '24px' }}>
+              <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                   Customer Base Distribution
                 </h3>
@@ -693,28 +736,28 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                   centerLabel="Customers"
                   centerValue={customerData.totalCustomers}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', flexShrink: 0 }} />
                     <span>Active: <strong>{customerData.statusDistribution.active}</strong></span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#8B5CF6' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8B5CF6', flexShrink: 0 }} />
                     <span>VIP: <strong>{customerData.statusDistribution.vip}</strong></span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
                     <span>At Risk: <strong>{customerData.statusDistribution.atRisk}</strong></span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#94A3B8' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94A3B8', flexShrink: 0 }} />
                     <span>Inactive: <strong>{customerData.statusDistribution.inactive}</strong></span>
                   </div>
                 </div>
               </Card>
 
               {/* Customer Acquisition Mix */}
-              <Card style={{ padding: '24px' }}>
+              <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                   Customer Acquisition Mix
                 </h3>
@@ -734,13 +777,13 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 2: RETENTION & COHORTS */}
       {!isLoading && activeTab === 'retention' && retentionData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
           {/* Retention KPIs */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
+              gap: isMobile ? '10px' : '16px',
             }}
           >
             {renderKpiCard(
@@ -778,32 +821,32 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </div>
 
           {/* Retention Breakdown Info */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Period Visit Frequency Breakdown
             </h3>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '16px',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+                gap: isMobile ? '10px' : '16px',
               }}
             >
-              <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '13px', color: '#64748B' }}>Total Visiting Customers</span>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
+              <div style={{ padding: '14px 16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '12px', color: '#64748B' }}>Total Visiting Customers</span>
+                <div style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
                   {retentionData.totalCustomersWithVisits.toLocaleString()}
                 </div>
               </div>
-              <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '13px', color: '#64748B' }}>Single-Visit Customers</span>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
+              <div style={{ padding: '14px 16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '12px', color: '#64748B' }}>Single-Visit Customers</span>
+                <div style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
                   {retentionData.singleVisitCustomers.toLocaleString()}
                 </div>
               </div>
-              <div style={{ padding: '16px', backgroundColor: '#EEF2FF', borderRadius: '8px', border: '1px solid #C7D2FE' }}>
-                <span style={{ fontSize: '13px', color: '#4338CA' }}>Multi-Visit (Repeat) Customers</span>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#4338CA', marginTop: '4px' }}>
+              <div style={{ padding: '14px 16px', backgroundColor: '#EEF2FF', borderRadius: '8px', border: '1px solid #C7D2FE' }}>
+                <span style={{ fontSize: '12px', color: '#4338CA' }}>Multi-Visit (Repeat) Customers</span>
+                <div style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#4338CA', marginTop: '4px' }}>
                   {retentionData.multiVisitCustomers.toLocaleString()}
                 </div>
               </div>
@@ -811,14 +854,14 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </Card>
 
           {/* Educational Calculation Guide */}
-          <Card style={{ padding: '24px', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1' }}>
             <div
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
               onClick={() => setShowFormulaGuide(!showFormulaGuide)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <HelpCircle size={18} color="#4F6BFF" />
-                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>
+                <h4 style={{ margin: 0, fontSize: isMobile ? '13px' : '14px', fontWeight: 600, color: '#0F172A' }}>
                   How are retention & comparison metrics calculated?
                 </h4>
               </div>
@@ -865,13 +908,17 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 3: LOYALTY & REWARDS */}
       {!isLoading && activeTab === 'loyalty' && loyaltyData && rewardsData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
           {/* Loyalty KPIs */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: isMobile
+                ? 'repeat(2, minmax(0, 1fr))'
+                : isTablet
+                ? 'repeat(3, minmax(0, 1fr))'
+                : 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: isMobile ? '10px' : '16px',
             }}
           >
             {renderKpiCard('Active Loyalty Members', loyaltyData.activeMembers, <Award size={18} />)}
@@ -883,21 +930,21 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </div>
 
           {/* Stamp Issuance Timeline */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Stamp Issuance Activity Over Time
             </h3>
             <AnalyticsAreaChart
               data={loyaltyData.trends.stampsOverTime}
               color="#8B5CF6"
-              height={240}
+              height={isMobile ? 200 : 240}
               valueSuffix=" stamps"
             />
           </Card>
 
           {/* Top Claimed and Redeemed Rewards */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Top Performing Rewards Catalog Items
             </h3>
             {rewardsData.topRewards.length === 0 ? (
@@ -920,13 +967,13 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 4: OFFERS */}
       {!isLoading && activeTab === 'offers' && offersData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
           {/* Offers KPIs */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: isMobile ? '10px' : '16px',
             }}
           >
             {renderKpiCard('Active Offers', offersData.activeOffersCount, <Tag size={18} />)}
@@ -934,21 +981,21 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </div>
 
           {/* Offer Redemptions Timeline */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Special Offer Redemptions Timeline
             </h3>
             <AnalyticsAreaChart
               data={offersData.redemptionsOverTime}
               color="#10B981"
-              height={240}
+              height={isMobile ? 200 : 240}
               valueSuffix=" redemptions"
             />
           </Card>
 
           {/* Top Offers */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Top Performing Offers by Customer Redemptions
             </h3>
             {offersData.topOffers.length === 0 ? (
@@ -970,13 +1017,17 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 5: REVIEWS & FEEDBACK */}
       {!isLoading && activeTab === 'reviews' && reviewData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
           {/* Reviews KPIs */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: isMobile
+                ? 'repeat(2, minmax(0, 1fr))'
+                : isTablet
+                ? 'repeat(3, minmax(0, 1fr))'
+                : 'repeat(5, minmax(0, 1fr))',
+              gap: isMobile ? '10px' : '16px',
             }}
           >
             {renderKpiCard('Average Rating', reviewData.averageRating, <Star size={18} />, '★')}
@@ -1004,12 +1055,12 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '20px',
+              gridTemplateColumns: isTablet ? '1fr' : 'repeat(2, 1fr)',
+              gap: isMobile ? '14px' : '20px',
             }}
           >
             {/* Star Distribution */}
-            <Card style={{ padding: '24px' }}>
+            <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                 Star Rating Breakdown (1★ - 5★)
               </h3>
@@ -1027,7 +1078,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
             </Card>
 
             {/* Sentiment Breakdown */}
-            <Card style={{ padding: '24px' }}>
+            <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                 Customer Sentiment
               </h3>
@@ -1040,17 +1091,17 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                 centerLabel="Reviews"
                 centerValue={reviewData.totalReviews}
               />
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: isMobile ? '10px' : '16px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', flexShrink: 0 }} />
                   <span>Positive: <strong>{reviewData.sentimentCounts.positive}</strong></span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
                   <span>Neutral: <strong>{reviewData.sentimentCounts.neutral}</strong></span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#EF4444' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#EF4444', flexShrink: 0 }} />
                   <span>Negative: <strong>{reviewData.sentimentCounts.negative}</strong></span>
                 </div>
               </div>
@@ -1060,18 +1111,19 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           {/* Google Semantics Disclosure Notice */}
           <div
             style={{
-              padding: '14px 18px',
+              padding: isMobile ? '12px 14px' : '14px 18px',
               backgroundColor: '#EFF6FF',
               border: '1px solid #BFDBFE',
               borderRadius: '8px',
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               color: '#1E40AF',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: '10px',
+              lineHeight: 1.4,
             }}
           >
-            <AlertCircle size={18} />
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>
               <strong>Note on Google Reviews:</strong> Google Review Targets indicate instances where satisfied customers were directed to your external Google Review page via the smart routing CTA. Reployty does not publish or scrape external Google profiles.
             </span>
@@ -1081,48 +1133,53 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
 
       {/* TAB 6: BRANCH COMPARISON */}
       {!isLoading && activeTab === 'branches' && branchData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
-              Branch Performance Comparison Table
-            </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
+                Branch Performance Comparison Table
+              </h3>
+              {isMobile && (
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>Scroll horizontally &rarr;</span>
+              )}
+            </div>
 
             {branchData.branches.length === 0 ? (
               <p style={{ color: '#64748B', fontSize: '13px' }}>No branch data recorded.</p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 600 }}>
-                      <th style={{ padding: '12px 16px' }}>Branch Name</th>
-                      <th style={{ padding: '12px 16px' }}>Total Customers</th>
-                      <th style={{ padding: '12px 16px' }}>Period Visits</th>
-                      <th style={{ padding: '12px 16px' }}>Stamps Issued</th>
-                      <th style={{ padding: '12px 16px' }}>Points Issued</th>
-                      <th style={{ padding: '12px 16px' }}>Offer Redemptions</th>
-                      <th style={{ padding: '12px 16px' }}>Avg Rating</th>
+                    <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 600 }}>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Branch Name</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Total Customers</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Period Visits</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Stamps Issued</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Points Issued</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Offer Redemptions</th>
+                      <th style={{ padding: isMobile ? '10px 12px' : '12px 16px' }}>Avg Rating</th>
                     </tr>
                   </thead>
                   <tbody>
                     {branchData.branches.map((b) => (
                       <tr key={b.branchId} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', fontWeight: 600, color: '#0F172A' }}>
                           {b.branchName}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#334155' }}>{b.customerCount.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', color: '#334155', fontWeight: 600 }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155' }}>{b.customerCount.toLocaleString()}</td>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155', fontWeight: 600 }}>
                           {b.visitCount.toLocaleString()}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#334155' }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155' }}>
                           {b.stampsIssued.toLocaleString()}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#334155' }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155' }}>
                           {b.pointsIssued.toLocaleString()}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#334155' }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155' }}>
                           {b.offerRedemptions.toLocaleString()}
                         </td>
-                        <td style={{ padding: '12px 16px', color: '#334155' }}>
+                        <td style={{ padding: isMobile ? '10px 12px' : '12px 16px', color: '#334155' }}>
                           {b.averageRating > 0 ? `${b.averageRating} ★` : '—'}
                         </td>
                       </tr>
@@ -1134,8 +1191,8 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
           </Card>
 
           {/* Visits by Branch Bar Chart */}
-          <Card style={{ padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
+          <Card style={{ padding: isMobile ? '16px 14px' : '24px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: isMobile ? '15px' : '16px', fontWeight: 600, color: '#0F172A' }}>
               Activity Visits by Branch
             </h3>
             <AnalyticsBarChart
@@ -1144,7 +1201,7 @@ export const BusinessAnalyticsView: React.FC<BusinessAnalyticsViewProps> = ({ on
                 value: b.visitCount,
                 color: '#4F6BFF',
               }))}
-              height={220}
+              height={isMobile ? 200 : 220}
               valueSuffix=" visits"
             />
           </Card>

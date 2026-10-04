@@ -34,7 +34,8 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
     const statusCode = res.statusCode;
 
     // Skip noisy healthcheck spam from info logs in high-traffic production
-    if (req.path === '/health' || req.path === '/api/health') {
+    if (req.path === '/health' || req.path === '/health/live' || req.path === '/ready' || req.path === '/health/ready' ||
+        req.path === '/api/health' || req.path === '/api/health/live' || req.path === '/api/ready' || req.path === '/api/health/ready') {
       return;
     }
 

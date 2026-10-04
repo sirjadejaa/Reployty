@@ -873,7 +873,7 @@ export async function claimCustomerReward(
         customerId: ctx.customerId,
         businessId: ctx.businessId,
         ...(reward.programId ? { programId: reward.programId } : {}),
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'COMPLETED'] },
       },
     });
 

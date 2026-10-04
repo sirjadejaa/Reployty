@@ -12,11 +12,18 @@ import {
   Sparkles,
   Clock,
   RefreshCw,
+  AlertCircle,
+  QrCode,
+  Gift,
+  Zap,
 } from 'lucide-react';
+
 import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
+import { StatusBadge } from '../components/ui/StatusBadge';
+
 import { useTenant } from '../context/TenantContext';
 import { useToast } from '../context/ToastContext';
 import { AdminRoute } from '../types/loyalty';
@@ -354,8 +361,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             ) : (
               <Circle size={16} color="var(--color-text-muted)" />
             )}
-            <span>Loyalty Pass (Phase 6)</span>
+            <span>Customer Loyalty Program</span>
           </div>
+
         </div>
       </Card>
 
@@ -483,13 +491,222 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </Card>
       </div>
 
-      {/* 4. Two-Column Operational Layout */}
+      {/* 4. Customer Retention Action Center — Context-Aware Recommendations */}
+      <Card
+        style={{
+          marginBottom: 'var(--space-6)',
+          padding: 'var(--space-5)',
+          border: '1px solid #E2E8F0',
+          backgroundColor: '#FFFFFF',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '6px',
+                backgroundColor: '#EEF2FF',
+                color: '#4F6BFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Sparkles size={16} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, margin: 0, color: 'var(--color-text-primary)' }}>
+                Retention Action Center
+              </h2>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                Actionable next steps to turn first-time guests into loyal regulars.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 'var(--space-4)',
+          }}
+        >
+          {/* Action 1: Loyalty Program */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#4F6BFF', textTransform: 'uppercase' }}>
+                  Step 1 • Digital Pass
+                </span>
+                <StatusBadge
+                  status={data?.loyaltyProgram ? 'active' : 'pending'}
+                  label={data?.loyaltyProgram ? 'Active' : 'Missing'}
+                />
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', color: 'var(--color-text-primary)' }}>
+                {data?.loyaltyProgram ? 'Loyalty Stamp Card' : 'Enable Loyalty Program'}
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                {data?.loyaltyProgram
+                  ? `Customers earn stamps towards "${data.loyaltyProgram.rewardTitle}".`
+                  : 'Configure digital stamps or points so guests get rewarded on every purchase.'}
+              </p>
+            </div>
+            <Button
+              variant={data?.loyaltyProgram ? 'outline' : 'primary'}
+              size="sm"
+              onClick={() => onNavigate('loyalty')}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <Award size={14} />
+              {data?.loyaltyProgram ? 'Configure Program' : 'Set Up Loyalty'}
+            </Button>
+          </div>
+
+          {/* Action 2: Reward Catalog */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#16A34A', textTransform: 'uppercase' }}>
+                  Step 2 • Rewards
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                  Catalog
+                </span>
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', color: 'var(--color-text-primary)' }}>
+                Perks & Vouchers
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                Offer free drinks, appetizers, or discounts to motivate customers to reach their next stamp.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('rewards')}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <Gift size={14} />
+              Manage Rewards Catalog
+            </Button>
+          </div>
+
+          {/* Action 3: Customer QR Code Entry */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#D97706', textTransform: 'uppercase' }}>
+                  Step 3 • Customer Entry
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                  Standee QR
+                </span>
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', color: 'var(--color-text-primary)' }}>
+                Counter Standee Pass
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                Place your QR standee on the cashier counter. Customers scan and join without downloading an app.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('customer-preview')}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <QrCode size={14} />
+              Preview Customer Pass
+            </Button>
+          </div>
+
+          {/* Action 4: Automated Retention & Re-engagement */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-subtle)',
+              backgroundColor: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase' }}>
+                  Step 4 • Automations
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                  Win-Back
+                </span>
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', color: 'var(--color-text-primary)' }}>
+                Retention Triggers
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                Automatically send celebratory rewards on birthdays or re-engagement offers after 30 days of inactivity.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('automations')}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <Zap size={14} />
+              Set Up Automations
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* 5. Two-Column Operational Layout */}
       <div
         className="responsive-two-col"
         style={{
           marginBottom: 'var(--space-6)',
         }}
       >
+
         {/* Left: Quick Actions & Honest Future States */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <Card style={{ padding: 'var(--space-5)' }}>
@@ -587,7 +804,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </Card>
 
-          {/* Honest Setup State for Loyalty & Customer Retention Engine */}
+          {/* Customer Loyalty & Digital Stamp Cards */}
           <Card
             style={{
               padding: 'var(--space-5)',
@@ -595,51 +812,267 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               border: '1px solid var(--color-border-subtle)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '10px',
-                  backgroundColor: '#EEF2FF',
-                  color: '#4F6BFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Award size={18} />
-              </div>
+            {/* Condition 1: Incomplete business setup prerequisite */}
+            {!onboarding?.isCompleted && (!onboarding?.checklist.businessInfo || !onboarding?.checklist.branchSetup) ? (
               <div>
-                <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                  Customer Loyalty Pass
-                </h4>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Digital QR Stamp & Points Rewards (Coming in Phase 6)
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '10px',
+                        backgroundColor: '#EEF2FF',
+                        color: 'var(--color-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Award size={18} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        Customer Loyalty
+                      </h4>
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                        Digital QR Stamp & Points Rewards
+                      </span>
+                    </div>
+                  </div>
+                  <StatusBadge status="pending" label="Setup required" />
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#FFFBEB',
+                    border: '1px solid #FDE68A',
+                    marginBottom: 'var(--space-3)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle size={16} color="#D97706" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', marginBottom: 2 }}>
+                      Complete your business setup to configure customer loyalty.
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#B45309', lineHeight: 1.4 }}>
+                      Set up your primary branch location and address details before issuing customer loyalty passes and rewards.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onNavigate('onboarding')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Sparkles size={14} />
+                    Complete Business Setup
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : !data?.loyaltyProgram ? (
+              /* Condition 2: Prerequisite satisfied, but loyalty not yet configured */
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '10px',
+                        backgroundColor: '#EEF2FF',
+                        color: 'var(--color-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Award size={18} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        Customer Loyalty
+                      </h4>
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                        Digital QR Stamp & Points Rewards
+                      </span>
+                    </div>
+                  </div>
+                  <StatusBadge status="pending" label="Not configured" />
+                </div>
 
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
-              Once you complete business onboarding and configure your locations, your digital stamp card passes, points thresholds, and QR standees will unlock here.
-            </p>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
+                  Set up your loyalty program to let customers earn stamps or points and unlock rewards.
+                </p>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                backgroundColor: '#F8FAFC',
-                border: '1px solid #E2E8F0',
-                fontSize: '12px',
-              }}
-            >
-              <span style={{ color: 'var(--color-text-muted)' }}>Status: Foundation configured</span>
-              <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>Scheduled: Phase 6</span>
-            </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid var(--color-border-subtle)',
+                    marginBottom: 'var(--space-3)',
+                    fontSize: '12px',
+                  }}
+                >
+                  <span style={{ color: 'var(--color-text-muted)' }}>Status</span>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Not configured</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onNavigate('loyalty')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Award size={14} />
+                    Set Up Loyalty
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Condition 3: Loyalty program is active with real PostgreSQL data */
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '10px',
+                        backgroundColor: '#DCFCE7',
+                        color: '#16A34A',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Award size={18} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        Customer Loyalty
+                      </h4>
+                      <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 500 }}>
+                        Your customer loyalty program is active.
+                      </span>
+                    </div>
+                  </div>
+                  <StatusBadge status="active" label="Active" />
+                </div>
+
+                {/* Real PostgreSQL Program Snapshot */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: 'var(--space-2)',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid var(--color-border-subtle)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Program
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                      {data.loyaltyProgram.name}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Type & Target
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                      {data.loyaltyProgram.type === 'STAMP'
+                        ? `${data.loyaltyProgram.targetStamps || 10} stamps`
+                        : `${data.loyaltyProgram.pointsPerCurrencyMinor || 10} pts / ₹10`}
+                    </div>
+
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Reward
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {data.loyaltyProgram.rewardTitle}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Active Passes
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-primary)', marginTop: 2 }}>
+                      {data.loyaltyProgram.activeCardsCount} issued
+                    </div>
+                  </div>
+                </div>
+
+                {data.loyaltyProgram.qrCode && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: '#EEF2FF',
+                      border: '1px solid #C7D2FE',
+                      marginBottom: 'var(--space-3)',
+                      fontSize: '11px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-primary)' }}>
+                      <QrCode size={14} />
+                      <span>Standee QR: <strong>{data.loyaltyProgram.qrCode.destinationUrl}</strong></span>
+                    </div>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
+                      {data.loyaltyProgram.qrCode.scanCount} scans
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                  <Button
+
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigate('customer-preview')}
+                  >
+                    Preview Pass
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onNavigate('loyalty')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Award size={14} />
+                    Manage Loyalty
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
+
         </div>
 
         {/* Right: Real Operational Audit Activity */}

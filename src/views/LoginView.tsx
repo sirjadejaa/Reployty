@@ -236,8 +236,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigateForgotPassword }
             >
               Sign In to Reployty
             </Button>
+
+            <div
+              style={{
+                marginTop: 'var(--space-4)',
+                textAlign: 'center',
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              New business?{' '}
+              <a
+                href="#get-started"
+                style={{
+                  color: 'var(--color-primary)',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Apply for Reployty Workspace
+              </a>
+            </div>
           </div>
         </form>
+
 
         {/* Quick Testing Personas */}
         <div

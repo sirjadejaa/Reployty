@@ -8,8 +8,12 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "start": "tsx src/server/index.ts",
-    "test": "tsx --test --test-concurrency=1 tests/production/*.test.ts tests/e2e/*.test.ts tests/security/*.test.ts"
+    "test": "tsx --test --test-concurrency=1 tests/production/*.test.ts tests/staging/*.test.ts tests/e2e/*.test.ts tests/security/*.test.ts",
+    "demo:seed": "tsx prisma/demoSeed.ts",
+    "demo:clean": "tsx prisma/demoSeed.ts --clean",
+    "demo:reset": "tsx prisma/demoSeed.ts --clean && tsx prisma/demoSeed.ts"
   },
+
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },

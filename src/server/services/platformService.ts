@@ -207,14 +207,27 @@ export async function getPlatformBusinessById(businessId: string) {
 
   if (!business) return null;
 
-  const recentLogs = await prisma.auditLog.findMany({
-    where: { businessId },
-    take: 10,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      actor: { select: { id: true, name: true, email: true } },
-    },
-  });
+  const [recentLogs, qrCodes, ownerInvitations] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: { businessId },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        actor: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    prisma.qRCode.findMany({
+      where: { businessId },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.ownerInvitation.findMany({
+      where: { businessId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
+  ]);
 
   return {
     id: business.id,
@@ -229,6 +242,7 @@ export async function getPlatformBusinessById(businessId: string) {
     currency: business.currency,
     primaryColor: business.primaryColor,
     secondaryColor: business.secondaryColor,
+    onboardingCompleted: business.onboardingCompleted,
     createdAt: business.createdAt.toISOString(),
     branches: business.branches.map(b => ({
       id: b.id,
@@ -264,6 +278,23 @@ export async function getPlatformBusinessById(businessId: string) {
       rewardTitle: p.rewardTitle,
       targetStamps: p.targetStamps,
     })),
+    qrCodes: qrCodes.map(q => ({
+      id: q.id,
+      code: q.code,
+      type: q.type,
+      status: q.status,
+      destinationUrl: q.destinationUrl,
+      scanCount: q.scanCount,
+      createdAt: q.createdAt.toISOString(),
+    })),
+
+    ownerInvitations: ownerInvitations.map(inv => ({
+      id: inv.id,
+      expiresAt: inv.expiresAt.toISOString(),
+      usedAt: inv.usedAt ? inv.usedAt.toISOString() : null,
+      createdAt: inv.createdAt.toISOString(),
+      user: inv.user,
+    })),
     auditLogs: recentLogs.map(l => ({
       id: l.id,
       action: l.action,
@@ -273,6 +304,7 @@ export async function getPlatformBusinessById(businessId: string) {
       createdAt: l.createdAt.toISOString(),
     })),
   };
+
 }
 
 /**

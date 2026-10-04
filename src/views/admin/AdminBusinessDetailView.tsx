@@ -3,6 +3,7 @@ import {
   RefreshCw,
   CheckCircle2,
 } from 'lucide-react';
+
 import { PlatformBusinessDetail, AdminRoute } from '../../types/admin';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { Button } from '../../components/ui/Button';
@@ -10,6 +11,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../context/ToastContext';
+import { QRCard } from '../../components/loyalty/QRCard';
 
 export interface AdminBusinessDetailViewProps {
   businessId: string;
@@ -24,7 +26,7 @@ export const AdminBusinessDetailView: React.FC<AdminBusinessDetailViewProps> = (
   const [business, setBusiness] = useState<PlatformBusinessDetail | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'branches' | 'staff' | 'loyalty'>('branches');
+  const [activeTab, setActiveTab] = useState<'branches' | 'staff' | 'loyalty' | 'qr' | 'invitations'>('branches');
 
   // Status Change Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -325,15 +327,43 @@ export const AdminBusinessDetailView: React.FC<AdminBusinessDetailViewProps> = (
               Across all branches
             </div>
           </div>
+
+          {/* Onboarding Status */}
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Onboarding
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: business.onboardingCompleted ? '#16A34A' : '#D97706', marginTop: 4 }}>
+              {business.onboardingCompleted ? 'Completed (Ready)' : 'Setup In Progress'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748B', marginTop: 2 }}>
+              Business admin workflow
+            </div>
+          </div>
+
+          {/* Business Owner */}
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Business Owner
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: 4 }}>
+              {business.staff.find(s => s.role === 'OWNER')?.user.name || 'Unassigned'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748B', marginTop: 2 }}>
+              {business.staff.find(s => s.role === 'OWNER')?.user.email || 'No owner email'}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Section Tabs */}
-      <div style={{ borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 'var(--space-6)' }}>
+      <div style={{ borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 'var(--space-6)', overflowX: 'auto' }}>
         {[
           { id: 'branches' as const, label: `Branches (${business.branches.length})` },
           { id: 'staff' as const, label: `Staff (${business.staff.length})` },
           { id: 'loyalty' as const, label: `Loyalty Programs (${business.loyaltyPrograms.length})` },
+          { id: 'qr' as const, label: `Store QR (${business.qrCodes?.length || 0})` },
+          { id: 'invitations' as const, label: `Owner Access (${business.ownerInvitations?.length || 0})` },
         ].map(tab => {
           const isSelected = activeTab === tab.id;
           return (
@@ -351,6 +381,7 @@ export const AdminBusinessDetailView: React.FC<AdminBusinessDetailViewProps> = (
                 background: 'transparent',
                 cursor: 'pointer',
                 marginBottom: -1,
+                whiteSpace: 'nowrap',
                 transition: 'color 150ms ease, border-color 150ms ease',
               }}
             >
@@ -358,6 +389,7 @@ export const AdminBusinessDetailView: React.FC<AdminBusinessDetailViewProps> = (
             </button>
           );
         })}
+
       </div>
 
       {/* Tab Content Container */}
@@ -538,7 +570,110 @@ export const AdminBusinessDetailView: React.FC<AdminBusinessDetailViewProps> = (
             )}
           </div>
         )}
+
+        {/* Tab 4: Store QR Code Standee */}
+        {activeTab === 'qr' && (
+          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <QRCard
+              businessName={business.name}
+              slug={business.slug}
+              tagline="Scan at checkout to join loyalty & collect stamps"
+            />
+            {business.qrCodes && business.qrCodes.length > 0 && (
+              <div
+                style={{
+                  marginTop: '20px',
+                  width: '100%',
+                  maxWidth: 500,
+                  fontSize: 13,
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  backgroundColor: '#FAFAFC',
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 8, color: '#0F172A' }}>
+                  Customer Entry Standee Telemetry
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ color: '#64748B' }}>QR Identifier</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{business.qrCodes[0].code}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ color: '#64748B' }}>Destination Flow</span>
+                  <span style={{ color: '#4F6BFF' }}>{business.qrCodes[0].destinationUrl}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                  <span style={{ color: '#64748B' }}>Total Customer Scans</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{business.qrCodes[0].scanCount}</span>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 5: Owner Access & Setup Invitations */}
+        {activeTab === 'invitations' && (
+          <div>
+            {!business.ownerInvitations || business.ownerInvitations.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                No owner setup invitations recorded for this business.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                    <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Recipient</th>
+                    <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Sent / Created</th>
+                    <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Expires</th>
+                    <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {business.ownerInvitations.map((inv, idx) => {
+                    const isExpired = new Date(inv.expiresAt) < new Date();
+                    const isUsed = Boolean(inv.usedAt);
+                    return (
+                      <tr
+                        key={inv.id}
+                        style={{
+                          borderBottom: idx === business.ownerInvitations!.length - 1 ? 'none' : '1px solid #F1F5F9',
+                        }}
+                      >
+                        <td style={{ padding: '14px 16px', fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>
+                          {inv.user.email} {inv.user.name ? `(${inv.user.name})` : ''}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: '12px', color: '#64748B' }}>
+                          {new Date(inv.createdAt).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: '12px', color: '#64748B' }}>
+                          {new Date(inv.expiresAt).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: isUsed ? '#ECFDF5' : isExpired ? '#FEF2F2' : '#EFF6FF',
+                              color: isUsed ? '#059669' : isExpired ? '#DC2626' : '#2563EB',
+                            }}
+                          >
+                            {isUsed ? 'Completed' : isExpired ? 'Expired' : 'Pending Setup'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
+
 
       {/* Confirmation Modal for Status Mutation */}
       <Modal

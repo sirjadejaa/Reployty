@@ -68,13 +68,13 @@ export const BusinessSettingsView: React.FC<BusinessSettingsViewProps> = ({ onNa
       disabled: false,
     },
     {
-      title: 'Automated Notifications',
-      desc: 'Customer SMS alerts, WhatsApp message templates, and staff alerts.',
+      title: 'Messaging & Providers',
+      desc: 'SMS (MSG91), WhatsApp (Meta Cloud API), and Email (SendGrid) connectors.',
       icon: Bell,
-      route: 'settings' as AdminRoute,
-      status: 'Coming Soon',
-      actionLabel: 'Scheduled for Phase 8',
-      disabled: true,
+      route: 'settings-messaging' as AdminRoute,
+      status: 'Active',
+      actionLabel: 'Configure Providers',
+      disabled: false,
     },
   ];
 

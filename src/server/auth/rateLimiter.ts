@@ -284,3 +284,18 @@ export const webhookRateLimiter = new RateLimiter({
   maxRequests: 60,
   namespace: 'webhook',
 });
+
+// 5 onboarding submissions per 15 minutes per IP
+export const onboardingSubmissionLimiter = new RateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 5,
+  namespace: 'onboarding_submission',
+});
+
+// 10 invitation setup attempts per 15 minutes per IP
+export const invitationAttemptLimiter = new RateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 10,
+  namespace: 'invitation_setup',
+});
+
