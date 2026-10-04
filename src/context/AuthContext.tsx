@@ -14,6 +14,7 @@ export interface AuthBusiness {
   category: string;
   role: string;
   isOwner: boolean;
+  logo?: string | null;
 }
 
 export interface AuthMembership {
@@ -23,6 +24,7 @@ export interface AuthMembership {
   category: string;
   role: string;
   status: string;
+  logo?: string | null;
 }
 
 interface AuthContextType {

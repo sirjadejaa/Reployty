@@ -68,6 +68,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            {currentBusiness.logo ? (
+              <img
+                src={currentBusiness.logo}
+                alt={`${currentBusiness.name} logo`}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '4px',
+                  objectFit: 'cover',
+                  border: '1px solid var(--color-border)',
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : null}
             <span
               style={{
                 fontSize: 'var(--font-size-xs)',

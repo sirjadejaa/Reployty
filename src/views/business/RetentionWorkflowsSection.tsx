@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Modal } from '../../components/ui/Modal';
 import { MetricCard } from '../../components/ui/MetricCard';
@@ -1040,190 +1041,241 @@ export const RetentionWorkflowsSection: React.FC = () => {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         title={editingWorkflowId ? 'Edit Retention Workflow' : 'Create Retention Workflow'}
+        maxWidth="620px"
       >
-        <form onSubmit={handleSaveWorkflow} className="space-y-4 text-xs">
+        <form onSubmit={handleSaveWorkflow} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-4)',
+                backgroundColor: 'var(--color-danger-subtle)',
+                border: '1px solid var(--color-danger-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-danger-text)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
               <span>{formError}</span>
             </div>
           )}
 
-          <div>
-            <label className="block font-medium text-gray-700 mb-1">Workflow Name *</label>
+          {/* Section 1: Workflow Identity */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">Workflow Identity</h4>
+                <p className="form-section-desc">Name and describe this automated customer retention campaign.</p>
+              </div>
+            </div>
+
             <Input
+              label="Workflow Name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g. 30-Day Inactive Check-in"
               required
             />
-          </div>
 
-          <div>
-            <label className="block font-medium text-gray-700 mb-1">Description</label>
             <Input
+              label="Description (Optional)"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Internal notes or rationale..."
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">Workflow Type *</label>
-              <select
+          {/* Section 2: Type & Scope */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">
+                  <Clock size={15} style={{ color: 'var(--color-primary)' }} />
+                  Retention Type & Scope
+                </h4>
+                <p className="form-section-desc">Select the trigger mechanism and target branch location.</p>
+              </div>
+            </div>
+
+            <div className="form-grid-2">
+              <Select
+                label="Workflow Type"
+                required
                 value={formData.workflowType}
                 onChange={(e) => setFormData({ ...formData, workflowType: e.target.value as any })}
                 disabled={Boolean(editingWorkflowId)}
-                className="w-full h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs"
-              >
-                <option value="INACTIVITY">Inactivity Re-engagement</option>
-                <option value="WIN_BACK">Win-Back</option>
-                <option value="BIRTHDAY">Birthday</option>
-              </select>
-            </div>
+                options={[
+                  { value: 'INACTIVITY', label: 'Inactivity Re-engagement' },
+                  { value: 'WIN_BACK', label: 'Win-Back Churn Recovery' },
+                  { value: 'BIRTHDAY', label: 'Birthday Celebration' },
+                ]}
+              />
 
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">Branch Scope</label>
-              <select
+              <Select
+                label="Branch Scope"
                 value={formData.branchId}
                 onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-                className="w-full h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs"
-              >
-                <option value="">All Branches (Business-wide)</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'All Branches (Business-wide)' },
+                  ...branches.map((b) => ({ value: b.id, label: b.name })),
+                ]}
+              />
             </div>
           </div>
 
-          {/* Conditional Workflow Fields */}
+          {/* Section 3: Conditional Workflow Parameters */}
           {formData.workflowType === 'INACTIVITY' && (
-            <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-lg space-y-3">
-              <div>
-                <label className="block font-medium text-amber-900 mb-1">Inactivity Threshold (Days) *</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={formData.inactivityDays}
-                  onChange={(e) => setFormData({ ...formData, inactivityDays: parseInt(e.target.value, 10) || 30 })}
-                  required
-                />
-                <span className="text-[11px] text-amber-700 mt-1 block">
-                  Triggers when a customer has had no visit recorded for this number of days.
-                </span>
-              </div>
-              <label className="flex items-center gap-2 text-amber-900 cursor-pointer">
+            <div className="form-section-subtle">
+              <span className="form-section-title">
+                <Clock size={15} style={{ color: 'var(--color-primary)' }} />
+                Inactivity Rules
+              </span>
+
+              <Input
+                label="Inactivity Threshold (Days)"
+                type="number"
+                min="1"
+                max="365"
+                value={formData.inactivityDays}
+                onChange={(e) => setFormData({ ...formData, inactivityDays: parseInt(e.target.value, 10) || 30 })}
+                helperText="Triggers when a customer has had no visit recorded for this number of days."
+                required
+              />
+
+              <label className="checkbox-control" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)' }}>
                 <input
                   type="checkbox"
                   checked={formData.includeNeverVisited}
                   onChange={(e) => setFormData({ ...formData, includeNeverVisited: e.target.checked })}
-                  className="rounded text-brand-600 focus:ring-brand-500"
+                  className="checkbox-input"
+                  style={{ display: 'none' }}
                 />
-                <span>Include customers who registered but have never logged a visit yet</span>
+                <span className="checkbox-box" style={{ width: 16, height: 16 }}>
+                  {formData.includeNeverVisited && <CheckCircle size={12} />}
+                </span>
+                <span>Include registered guests who have not logged their first visit yet</span>
               </label>
             </div>
           )}
 
           {formData.workflowType === 'WIN_BACK' && (
-            <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-lg space-y-3">
-              <div>
-                <label className="block font-medium text-purple-900 mb-1">Win-Back Threshold (Days) *</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="730"
-                  value={formData.winBackThresholdDays}
-                  onChange={(e) => setFormData({ ...formData, winBackThresholdDays: parseInt(e.target.value, 10) || 90 })}
-                  required
-                />
-                <span className="text-[11px] text-purple-700 mt-1 block">
-                  Triggers for lapsed customers who have crossed this longer churn threshold.
-                </span>
-              </div>
+            <div className="form-section-subtle">
+              <span className="form-section-title">
+                <RotateCcw size={15} style={{ color: 'var(--color-primary)' }} />
+                Win-Back Churn Threshold
+              </span>
+
+              <Input
+                label="Win-Back Threshold (Days)"
+                type="number"
+                min="1"
+                max="730"
+                value={formData.winBackThresholdDays}
+                onChange={(e) => setFormData({ ...formData, winBackThresholdDays: parseInt(e.target.value, 10) || 90 })}
+                helperText="Triggers for lapsed customers who have crossed this longer churn threshold."
+                required
+              />
             </div>
           )}
 
           {formData.workflowType === 'BIRTHDAY' && (
-            <div className="p-3 bg-pink-50/50 border border-pink-200 rounded-lg space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-pink-900 mb-1">Days Before Birthday</label>
-                  <select
-                    value={formData.daysBefore}
-                    onChange={(e) => setFormData({ ...formData, daysBefore: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs"
-                  >
-                    <option value={0}>On the day of birthday</option>
-                    <option value={1}>1 day before</option>
-                    <option value={2}>2 days before</option>
-                    <option value={3}>3 days before</option>
-                    <option value={7}>7 days before (1 week)</option>
-                    <option value={14}>14 days before (2 weeks)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-pink-900 mb-1">Feb 29 Leap-Year Rule</label>
-                  <select
-                    value={formData.leapYearFeb29Policy}
-                    onChange={(e) => setFormData({ ...formData, leapYearFeb29Policy: e.target.value as any })}
-                    className="w-full h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs"
-                  >
-                    <option value="FEB_28">Celebrate on Feb 28 (Recommended)</option>
-                    <option value="MAR_1">Celebrate on March 1</option>
-                  </select>
-                </div>
+            <div className="form-section-subtle">
+              <span className="form-section-title">
+                <Gift size={15} style={{ color: 'var(--color-primary)' }} />
+                Birthday Schedule & Calendar Rules
+              </span>
+
+              <div className="form-grid-2">
+                <Select
+                  label="Dispatch Timing"
+                  value={String(formData.daysBefore)}
+                  onChange={(e) => setFormData({ ...formData, daysBefore: parseInt(e.target.value, 10) || 0 })}
+                  options={[
+                    { value: '0', label: 'On the day of birthday' },
+                    { value: '1', label: '1 day before' },
+                    { value: '2', label: '2 days before' },
+                    { value: '3', label: '3 days before' },
+                    { value: '7', label: '7 days before (1 week)' },
+                    { value: '14', label: '14 days before (2 weeks)' },
+                  ]}
+                />
+
+                <Select
+                  label="Feb 29 Leap-Year Rule"
+                  value={formData.leapYearFeb29Policy}
+                  onChange={(e) => setFormData({ ...formData, leapYearFeb29Policy: e.target.value as any })}
+                  options={[
+                    { value: 'FEB_28', label: 'Celebrate on Feb 28 (Recommended)' },
+                    { value: 'MAR_1', label: 'Celebrate on March 1' },
+                  ]}
+                />
               </div>
-              <span className="text-[11px] text-pink-700 block">
+
+              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-1)' }}>
                 Timezone-aware: Evaluates customer birthday matching business/branch timezone once per calendar year.
               </span>
             </div>
           )}
 
-          <div>
-            <label className="block font-medium text-gray-700 mb-1">Target Campaign to Dispatch *</label>
-            <select
+          {/* Section 4: Target Campaign to Dispatch */}
+          <div className="form-section-primary">
+            <span className="form-section-title" style={{ color: 'var(--color-primary)' }}>
+              <Gift size={15} style={{ color: 'var(--color-primary)' }} />
+              Action: Dispatch Campaign (THEN)
+            </span>
+
+            <Select
+              label="Target Campaign to Dispatch"
+              required
               value={formData.campaignId}
               onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
-              className="w-full h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs"
-              required
-            >
-              <option value="">Select a campaign...</option>
-              {campaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.channel})
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '-- Select Campaign to Dispatch --' },
+                ...campaigns.map((c) => ({
+                  value: c.id,
+                  label: `${c.name} (${c.channel})`,
+                })),
+              ]}
+              helperText="Reward perk or re-engagement message sent to qualifying customers."
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">Customer Cooldown (Days)</label>
+          {/* Section 5: Safeguards */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">Safeguards & Frequency Caps</h4>
+                <p className="form-section-desc">Manage repeat triggers and cooldown periods.</p>
+              </div>
+            </div>
+
+            <div className="form-grid-2">
               <Input
+                label="Customer Cooldown (Days)"
                 type="number"
                 min="0"
                 value={formData.cooldownDays}
                 onChange={(e) => setFormData({ ...formData, cooldownDays: parseInt(e.target.value, 10) || 0 })}
+                helperText="Minimum days between retention messages"
               />
-            </div>
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">Max Executions Per Customer</label>
+
               <Input
+                label="Max Executions Per Customer"
                 type="number"
                 min="1"
                 value={formData.maxExecutionsPerCustomer}
                 onChange={(e) => setFormData({ ...formData, maxExecutionsPerCustomer: e.target.value })}
                 placeholder="1 (Default)"
+                helperText="Maximum times this workflow can trigger per customer"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+          {/* Form Actions */}
+          <div className="form-actions">
             <Button variant="outline" type="button" onClick={() => setCreateModalOpen(false)}>
               Cancel
             </Button>

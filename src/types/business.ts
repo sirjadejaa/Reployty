@@ -125,6 +125,7 @@ export interface BusinessDashboardData {
     name: string;
     slug: string;
     category: string;
+    logo?: string | null;
     themePreset: string;
     onboardingCompleted: boolean;
     onboardingStep: number;

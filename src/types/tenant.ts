@@ -44,6 +44,7 @@ export interface Business {
   slug: string;
   category: BusinessCategory;
   tagline?: string;
+  logo?: string | null;
   address?: string;
   phone?: string;
   themeConfig: BusinessThemeConfig;

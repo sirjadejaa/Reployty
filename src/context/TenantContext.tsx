@@ -52,6 +52,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           slug: m.businessSlug || m.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           category: cat,
           tagline: `${m.businessName} Loyalty & Retention`,
+          logo: m.logo || null,
           themeConfig: preset.theme,
           createdAt: new Date().toISOString(),
         };
@@ -68,6 +69,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         slug: authBusiness.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         category: currentCategory,
         tagline: `${authBusiness.name} Loyalty & Retention`,
+        logo: authBusiness.logo || null,
         themeConfig: currentPreset.theme,
         createdAt: new Date().toISOString(),
       }

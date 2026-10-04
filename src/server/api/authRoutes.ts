@@ -196,6 +196,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
     businessName: m.business?.name || '',
     businessSlug: m.business?.slug || '',
     category: m.business?.category || '',
+    logo: m.business?.logo || null,
     role: m.role?.name || '',
     status: m.status,
   }));
@@ -213,6 +214,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
           id: tenantCtx.businessId,
           name: tenantCtx.businessName,
           category: tenantCtx.businessCategory || 'cafe',
+          logo: tenantCtx.businessLogo || null,
           role: tenantCtx.roleName,
           isOwner: tenantCtx.isOwner,
         }

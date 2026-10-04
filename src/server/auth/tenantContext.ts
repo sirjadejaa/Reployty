@@ -21,6 +21,7 @@ export interface TenantContext {
   businessId: string;
   businessName: string;
   businessCategory?: string;
+  businessLogo?: string | null;
   branchId?: string | null;
   roleName: string;
   permissions: Set<string>;
@@ -118,6 +119,7 @@ export async function getTenantContext(
     businessId: targetBusinessId,
     businessName: membership?.business?.name || 'Reployty Platform',
     businessCategory: (membership?.business?.category || 'CAFE').toLowerCase(),
+    businessLogo: membership?.business?.logo || null,
     branchId: requestedBranchId ?? membership?.branchId ?? null,
     roleName,
     permissions,

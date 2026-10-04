@@ -113,36 +113,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           marginBottom: 'var(--space-6)',
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1
-              style={{
-                fontSize: 'var(--font-size-2xl)',
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                letterSpacing: '-0.02em',
-                margin: 0,
-              }}
-            >
-              {getTimeGreeting()}, {business?.name || currentBusiness.name}
-            </h1>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                backgroundColor: 'var(--color-primary-soft)',
-                color: 'var(--color-primary)',
-              }}
-            >
-              {business?.category || currentBusiness.category}
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+          {/* Business Logo or Monogram Badge */}
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--color-primary-subtle)',
+              border: '1px solid var(--color-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              flexShrink: 0,
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            {(business?.logo || currentBusiness.logo) ? (
+              <img
+                src={business?.logo || currentBusiness.logo || ''}
+                alt={`${business?.name || currentBusiness.name} logo`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  if (e.currentTarget.parentElement) {
+                    e.currentTarget.parentElement.innerText = (business?.name || currentBusiness.name).slice(0, 2).toUpperCase();
+                  }
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                {(business?.name || currentBusiness.name).slice(0, 2).toUpperCase()}
+              </span>
+            )}
           </div>
-          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            Here is your live operational overview and retention performance.
-          </p>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
+              <h1
+                style={{
+                  fontSize: 'var(--font-size-2xl)',
+                  fontWeight: 700,
+                  color: 'var(--color-text-primary)',
+                  letterSpacing: '-0.02em',
+                  margin: 0,
+                }}
+              >
+                {getTimeGreeting()}, {business?.name || currentBusiness.name}
+              </h1>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--color-primary-soft)',
+                  color: 'var(--color-primary)',
+                }}
+              >
+                {business?.category || currentBusiness.category}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+              Here is your live operational overview and retention performance.
+            </p>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>

@@ -154,8 +154,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-haspopup="listbox"
             aria-label="Switch current business"
           >
-            <span className="business-avatar-badge">
-              {currentBusiness.name.slice(0, 1).toUpperCase()}
+            <span className="business-avatar-badge" style={{ overflow: 'hidden', padding: 0 }}>
+              {currentBusiness.logo ? (
+                <img
+                  src={currentBusiness.logo}
+                  alt={currentBusiness.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                    if (e.currentTarget.parentElement) {
+                      e.currentTarget.parentElement.innerText = currentBusiness.name.slice(0, 2).toUpperCase();
+                    }
+                  }}
+                />
+              ) : (
+                currentBusiness.name.slice(0, 2).toUpperCase()
+              )}
             </span>
             <div className="business-info">
               <span className="business-title">{currentBusiness.name}</span>
@@ -218,8 +232,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <span
                     style={{
-                      width: 20,
-                      height: 20,
+                      width: 22,
+                      height: 22,
                       borderRadius: 4,
                       backgroundColor: 'var(--color-surface-muted)',
                       display: 'flex',
@@ -227,9 +241,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       justifyContent: 'center',
                       fontSize: 10,
                       fontWeight: 700,
+                      overflow: 'hidden',
+                      flexShrink: 0,
                     }}
                   >
-                    {biz.name[0]}
+                    {biz.logo ? (
+                      <img
+                        src={biz.logo}
+                        alt={biz.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                          if (e.currentTarget.parentElement) {
+                            e.currentTarget.parentElement.innerText = biz.name.slice(0, 1).toUpperCase();
+                          }
+                        }}
+                      />
+                    ) : (
+                      biz.name[0]
+                    )}
                   </span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {biz.name}

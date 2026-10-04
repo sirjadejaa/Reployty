@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Save,
   Check,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { AdminRoute } from '../../types/loyalty';
 import { CATEGORY_THEME_PRESETS } from '../../types/theme';
@@ -21,6 +25,7 @@ export interface BrandingViewProps {
 
 export const BrandingView: React.FC<BrandingViewProps> = () => {
   const { currentBusiness } = useTenant();
+  const { refreshAuth } = useAuth();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -28,6 +33,7 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
   const [selectedPreset, setSelectedPreset] = useState<string>('CAFE');
   const [primaryColor, setPrimaryColor] = useState<string>('#4F6BFF');
   const [secondaryColor, setSecondaryColor] = useState<string>('#111827');
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [previewProgramType, setPreviewProgramType] = useState<'STAMP' | 'POINTS'>('STAMP');
 
   const fetchBranding = async () => {
@@ -38,6 +44,7 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
         setSelectedPreset(json.themePreset || 'CAFE');
         setPrimaryColor(json.primaryColor || '#4F6BFF');
         setSecondaryColor(json.secondaryColor || '#111827');
+        setLogoUrl(json.logo || '');
       }
     } catch (err) {
       console.error('Failed to fetch branding:', err);
@@ -59,6 +66,40 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      addToast({
+        type: 'error',
+        title: 'Invalid file',
+        message: 'Please select a valid image file (PNG, JPEG, WebP, SVG).',
+      });
+      return;
+    }
+
+    if (file.size > 500 * 1024) {
+      addToast({
+        type: 'error',
+        title: 'Image too large',
+        message: 'Logo image must be smaller than 500KB. Please compress the image.',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoUrl(reader.result as string);
+      addToast({
+        type: 'info',
+        title: 'Logo loaded',
+        message: 'Logo loaded into preview. Click "Save Branding" to apply changes.',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -69,14 +110,16 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
           themePreset: selectedPreset,
           primaryColor,
           secondaryColor,
+          logo: logoUrl.trim() || null,
         }),
       });
 
       if (res.ok) {
+        await refreshAuth();
         addToast({
           type: 'success',
           title: 'Branding saved',
-          message: 'Your theme preset and brand colors have been updated.',
+          message: 'Your theme preset, brand colors, and workspace logo have been updated.',
         });
       } else {
         const err = await res.json();
@@ -197,6 +240,108 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
               })}
             </div>
           </Card>
+
+          {/* Business Workspace Logo Configuration Card */}
+          <Card style={{ padding: 'var(--space-5)' }}>
+            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>
+              Business Workspace Logo
+            </h2>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4)' }}>
+              Displayed in the navigation header, business switcher, dashboard welcome badge, and customer digital cards.
+            </p>
+
+            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {/* Live Preview Avatar */}
+              <div
+                style={{
+                  width: '76px',
+                  height: '76px',
+                  borderRadius: 'var(--radius-lg)',
+                  backgroundColor: 'var(--color-primary-subtle)',
+                  border: '2px solid var(--color-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: 'var(--shadow-xs)',
+                }}
+              >
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={() => {
+                      addToast({
+                        type: 'warning',
+                        title: 'Invalid image URL',
+                        message: 'The provided logo URL could not be loaded. Please check the URL.',
+                      });
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '26px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                    {currentBusiness.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              {/* URL input and Upload controls */}
+              <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <Input
+                  label="Logo Image URL (or paste image data URI)"
+                  placeholder="https://example.com/logo.png"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--color-surface-muted)',
+                      border: '1px solid var(--color-border)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      color: 'var(--color-text-primary)',
+                      transition: 'background-color 0.15s',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>Upload Image File</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  {logoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl('')}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-danger)' }}
+                    >
+                      <Trash2 size={13} />
+                      <span>Remove Logo</span>
+                    </Button>
+                  )}
+                </div>
+
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  Accepted: Direct HTTPS image links or PNG/JPEG uploads up to 500KB. Defaults to initials badge if empty.
+                </span>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Right Column: Live Interactive Card Preview */}
@@ -261,7 +406,7 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
 
             <DigitalLoyaltyCard
               businessName={currentBusiness.name}
-              businessLogo={currentBusiness.themeConfig?.logo || (currentBusiness as any).logo}
+              businessLogo={logoUrl || currentBusiness.logo}
               businessCategory={currentBusiness.category}
               branchName="Main Branch"
               programName={previewProgramType === 'STAMP' ? '10-Stamp Rewards Pass' : 'Exclusive VIP Points'}

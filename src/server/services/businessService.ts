@@ -9,6 +9,7 @@ export interface UpdateBusinessProfileInput {
   name?: string;
   category?: BusinessCategory;
   description?: string;
+  logo?: string | null;
   phone?: string;
   email?: string;
   website?: string;
@@ -30,6 +31,21 @@ export function isValidSafeUrl(str: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function validateLogo(logo?: string | null): string | null | undefined {
+  if (logo === undefined) return undefined;
+  if (logo === null || logo.trim() === '') return null;
+  const trimmed = logo.trim();
+  const isHttpUrl = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  const isDataUri = trimmed.startsWith('data:image/');
+  if (!isHttpUrl && !isDataUri) {
+    throw new Error('Invalid logo format. Must be an http/https URL or an image data URI (data:image/...).');
+  }
+  if (isDataUri && trimmed.length > 700000) {
+    throw new Error('Logo image data exceeds 500KB size limit. Please provide a smaller image.');
+  }
+  return trimmed;
 }
 
 export interface CreateBranchInput {
@@ -181,6 +197,7 @@ export async function updateBusinessProfile(
       ...(data.postalCode !== undefined ? { postalCode: data.postalCode?.trim() } : {}),
       ...(data.timezone !== undefined ? { timezone: data.timezone?.trim() } : {}),
       ...(data.currency !== undefined ? { currency: data.currency?.trim() } : {}),
+      ...(data.logo !== undefined ? { logo: validateLogo(data.logo) } : {}),
     },
     select: {
       id: true,
@@ -188,6 +205,7 @@ export async function updateBusinessProfile(
       slug: true,
       category: true,
       description: true,
+      logo: true,
       phone: true,
       email: true,
       website: true,
@@ -232,6 +250,7 @@ export async function getBusinessDashboard(ctx: TenantContext) {
       name: true,
       slug: true,
       category: true,
+      logo: true,
       themePreset: true,
       onboardingCompleted: true,
       onboardingStep: true,
@@ -948,7 +967,7 @@ export async function updateBusinessBranding(
       ...(data.themePreset ? { themePreset: data.themePreset.toUpperCase() } : {}),
       ...(data.primaryColor ? { primaryColor: data.primaryColor } : {}),
       ...(data.secondaryColor ? { secondaryColor: data.secondaryColor } : {}),
-      ...(data.logo !== undefined ? { logo: data.logo } : {}),
+      ...(data.logo !== undefined ? { logo: validateLogo(data.logo) } : {}),
       ...(data.coverImage !== undefined ? { coverImage: data.coverImage } : {}),
     },
     select: {

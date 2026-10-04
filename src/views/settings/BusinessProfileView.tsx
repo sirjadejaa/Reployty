@@ -10,6 +10,7 @@ import { Textarea } from '../../components/ui/Textarea';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { AdminRoute } from '../../types/loyalty';
 import { BusinessProfile } from '../../types/business';
@@ -20,6 +21,7 @@ export interface BusinessProfileViewProps {
 
 export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
   const { currentBusiness } = useTenant();
+  const { refreshAuth } = useAuth();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,7 @@ export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
     name: '',
     category: 'CAFE',
     description: '',
+    logo: '',
     phone: '',
     email: '',
     website: '',
@@ -52,6 +55,7 @@ export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
           name: json.name || '',
           category: json.category || 'CAFE',
           description: json.description || '',
+          logo: json.logo || '',
           phone: json.phone || '',
           email: json.email || '',
           website: json.website || '',
@@ -93,12 +97,16 @@ export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
       const res = await fetch('/api/business', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          logo: formData.logo.trim() || null,
+        }),
       });
 
       if (res.ok) {
         const updated = await res.json();
         setProfile((prev) => (prev ? { ...prev, ...updated } : null));
+        await refreshAuth();
         addToast({
           type: 'success',
           title: 'Profile updated',
@@ -200,6 +208,51 @@ export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
                 placeholder="Brief description that communicates your vibe and value to customers."
                 rows={3}
               />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+                Business Logo URL
+              </label>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-primary-subtle)',
+                    border: '1px solid var(--color-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                  }}
+                >
+                  {formData.logo ? (
+                    <img
+                      src={formData.logo}
+                      alt="Logo preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                      {(formData.name || 'B').slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input
+                    value={formData.logo}
+                    onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                    placeholder="https://example.com/logo.png or image data URI"
+                  />
+                </div>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginTop: '4px' }}>
+                Direct link to image file (PNG, JPG, SVG, WebP) or data URI under 500KB.
+              </span>
             </div>
           </div>
         </Card>

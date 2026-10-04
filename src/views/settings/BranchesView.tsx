@@ -6,6 +6,7 @@ import {
   MapPin,
   Phone,
   Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -322,137 +323,106 @@ export const BranchesView: React.FC<BranchesViewProps> = () => {
         title={editingBranch ? `Edit ${editingBranch.name}` : 'Add New Branch'}
         maxWidth="540px"
       >
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-              Branch Name *
-            </label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <Input
+            label="Branch Name"
+            required
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="e.g. Westside Studio"
+          />
+
+          <div className="form-grid-2">
             <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Westside Studio"
-              required
+              label="Location Code (Optional)"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="e.g. WS-01"
+            />
+
+            <Input
+              label="Branch Phone"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+1 (555) 000-0000"
             />
           </div>
 
-          <div className="form-row-2col">
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                Location Code (Optional)
-              </label>
-              <Input
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="e.g. WS-01"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                Branch Phone
-              </label>
-              <Input
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+1 (555) 000-0000"
-              />
-            </div>
-          </div>
+          <Input
+            label="Street Address"
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            placeholder="123 Commerce Way"
+          />
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-              Street Address
-            </label>
+          <div className="form-grid-3">
             <Input
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="123 Commerce Way"
+              label="City"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder="Downtown"
+            />
+
+            <Input
+              label="State"
+              value={formData.state}
+              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+              placeholder="CA"
+            />
+
+            <Input
+              label="Postal Code"
+              value={formData.postalCode}
+              onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+              placeholder="94105"
             />
           </div>
 
-          <div className="form-row-3col">
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                City
-              </label>
-              <Input
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="Downtown"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                State
-              </label>
-              <Input
-                value={formData.state}
-                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                placeholder="CA"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                Postal Code
-              </label>
-              <Input
-                value={formData.postalCode}
-                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                placeholder="94105"
-              />
-            </div>
-          </div>
-
-          <div className="form-row-2col">
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                Operating Timezone
-              </label>
-              <Select
-                value={formData.timezone}
-                onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                options={[
-                  { value: 'UTC', label: 'UTC' },
-                  { value: 'America/New_York', label: 'Eastern (ET)' },
-                  { value: 'America/Chicago', label: 'Central (CT)' },
-                  { value: 'America/Denver', label: 'Mountain (MT)' },
-                  { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
-                  { value: 'Asia/Kolkata', label: 'IST (India)' },
-                  { value: 'Europe/London', label: 'GMT / London' },
-                ]}
-              />
-            </div>
+          <div className="form-grid-2">
+            <Select
+              label="Operating Timezone"
+              value={formData.timezone}
+              onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+              options={[
+                { value: 'UTC', label: 'UTC' },
+                { value: 'America/New_York', label: 'Eastern (ET)' },
+                { value: 'America/Chicago', label: 'Central (CT)' },
+                { value: 'America/Denver', label: 'Mountain (MT)' },
+                { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
+                { value: 'Asia/Kolkata', label: 'IST (India)' },
+                { value: 'Europe/London', label: 'GMT / London' },
+              ]}
+            />
 
             {editingBranch && (
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Branch Status
-                </label>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  options={[
-                    { value: 'ACTIVE', label: 'Active (Operational)' },
-                    { value: 'INACTIVE', label: 'Inactive (Suspended)' },
-                  ]}
-                />
-              </div>
+              <Select
+                label="Branch Status"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                options={[
+                  { value: 'ACTIVE', label: 'Active (Operational)' },
+                  { value: 'INACTIVE', label: 'Inactive (Suspended)' },
+                ]}
+              />
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+          <label className="checkbox-control" style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
             <input
               type="checkbox"
               id="isMainBranch"
               checked={formData.isMainBranch}
               onChange={(e) => setFormData({ ...formData, isMainBranch: e.target.checked })}
-              style={{ cursor: 'pointer' }}
+              className="checkbox-input"
+              style={{ display: 'none' }}
             />
-            <label htmlFor="isMainBranch" style={{ fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
-              Set as main headquarters branch
-            </label>
-          </div>
+            <span className="checkbox-box" style={{ width: 18, height: 18 }}>
+              {formData.isMainBranch && <CheckCircle size={14} />}
+            </span>
+            <span>Set as main headquarters branch</span>
+          </label>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+          <div className="form-actions">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={submitting}>
               Cancel
             </Button>

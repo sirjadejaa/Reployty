@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Modal } from '../../components/ui/Modal';
 import { MetricCard } from '../../components/ui/MetricCard';
@@ -1240,206 +1241,222 @@ export const BusinessAutomationsView: React.FC<BusinessAutomationsViewProps> = (
         </>
       )}
 
-      {/* Structured Create / Edit Modal (Section 31 & 32: No drag-and-drop!) */}
+      {/* Structured Create / Edit Modal */}
       <Modal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         title={editingRuleId ? 'Edit Automation Rule' : 'Create Automation Rule'}
+        maxWidth="620px"
       >
-        <form onSubmit={handleSubmitForm} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+        <form onSubmit={handleSubmitForm} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {formError && (
-            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-4)',
+                backgroundColor: 'var(--color-danger-subtle)',
+                border: '1px solid var(--color-danger-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-danger-text)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
               <span>{formError}</span>
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Automation Name <span className="text-rose-500">*</span>
-            </label>
+          {/* Section 1: Basic Information */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">Workflow Identity</h4>
+                <p className="form-section-desc">Give your automation a recognizable name and operational summary.</p>
+              </div>
+            </div>
+
             <Input
+              label="Automation Name"
               type="text"
               placeholder="e.g. VIP Visit Milestone Reward"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Description (Optional)
-            </label>
             <Input
+              label="Description (Optional)"
               type="text"
-              placeholder="Brief description of this workflow"
+              placeholder="Brief description of this workflow's retention goal"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                When (Event Trigger) <span className="text-rose-500">*</span>
-              </label>
-              <select
+          {/* Section 2: Trigger & Scope */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">
+                  <Zap size={15} style={{ color: 'var(--color-primary)' }} />
+                  Trigger Event & Location
+                </h4>
+                <p className="form-section-desc">Define what event initiates this automation and where it applies.</p>
+              </div>
+            </div>
+
+            <div className="form-grid-2">
+              <Select
+                label="When (Event Trigger)"
+                required
                 value={formData.triggerEvent}
                 onChange={(e) =>
                   setFormData({ ...formData, triggerEvent: e.target.value as CustomerEventType })
                 }
-                className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-              >
-                {SUPPORTED_TRIGGERS.map((t) => (
-                  <option key={t.type} value={t.type}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                options={SUPPORTED_TRIGGERS.map((t) => ({
+                  value: t.type,
+                  label: t.label,
+                }))}
+              />
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Branch Scope
-              </label>
-              <select
+              <Select
+                label="Branch Scope"
                 value={formData.branchId}
                 onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-                className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-              >
-                <option value="">Business-wide (All Branches)</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Business-wide (All Branches)' },
+                  ...branches.map((b) => ({ value: b.id, label: b.name })),
+                ]}
+              />
             </div>
           </div>
 
-          {/* Condition Section */}
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200/75 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5 text-brand-600" />
+          {/* Section 3: Condition Rule (IF) */}
+          <div className="form-section-subtle">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+              <span className="form-section-title">
+                <Filter size={15} style={{ color: 'var(--color-primary)' }} />
                 Condition Rule (IF)
-              </label>
-              <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+              </span>
+              <label className="checkbox-control" style={{ fontSize: 'var(--font-size-xs)' }}>
                 <input
                   type="checkbox"
                   checked={formData.hasCondition}
                   onChange={(e) => setFormData({ ...formData, hasCondition: e.target.checked })}
-                  className="rounded text-brand-600 focus:ring-brand-500"
+                  className="checkbox-input"
+                  style={{ display: 'none' }}
                 />
-                Apply Condition
+                <span className="checkbox-box" style={{ width: 16, height: 16 }}>
+                  {formData.hasCondition && <CheckCircle size={12} />}
+                </span>
+                <span style={{ fontWeight: 600 }}>Filter by Customer Metric</span>
               </label>
             </div>
 
             {formData.hasCondition && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-1">Customer Field</label>
-                  <select
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingTop: 'var(--space-2)' }}>
+                <div className="form-grid-2">
+                  <Select
+                    label="Customer Metric"
                     value={formData.conditionField}
                     onChange={(e) => setFormData({ ...formData, conditionField: e.target.value })}
-                    className="border border-gray-200 rounded-lg py-1.5 px-2.5 text-xs bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-                  >
-                    <option value="totalVisits">Total Visits</option>
-                    <option value="stampsBalance">Stamps Balance</option>
-                    <option value="pointsBalance">Points Balance</option>
-                    <option value="daysSinceLastVisit">Days Since Last Visit</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-1">Operator</label>
-                  <select
+                    options={[
+                      { value: 'totalVisits', label: 'Total Visits' },
+                      { value: 'stampsBalance', label: 'Stamps Balance' },
+                      { value: 'pointsBalance', label: 'Points Balance' },
+                      { value: 'daysSinceLastVisit', label: 'Days Since Last Visit' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Operator"
                     value={formData.conditionOperator}
-                    onChange={(e) =>
-                      setFormData({ ...formData, conditionOperator: e.target.value })
-                    }
-                    className="border border-gray-200 rounded-lg py-1.5 px-2.5 text-xs bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-                  >
-                    <option value="GREATER_THAN_OR_EQUAL">&gt;= (Greater or Equal)</option>
-                    <option value="GREATER_THAN">&gt; (Greater Than)</option>
-                    <option value="EQUALS">== (Equals)</option>
-                    <option value="LESS_THAN_OR_EQUAL">&lt;= (Less or Equal)</option>
-                    <option value="LESS_THAN">&lt; (Less Than)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-1">Value</label>
-                  <Input
-                    type="text"
-                    value={formData.conditionValue}
-                    onChange={(e) => setFormData({ ...formData, conditionValue: e.target.value })}
-                    className="text-xs"
-                    required
+                    onChange={(e) => setFormData({ ...formData, conditionOperator: e.target.value })}
+                    options={[
+                      { value: 'GREATER_THAN_OR_EQUAL', label: '>= (Greater or Equal)' },
+                      { value: 'GREATER_THAN', label: '> (Greater Than)' },
+                      { value: 'EQUALS', label: '== (Equals)' },
+                      { value: 'LESS_THAN_OR_EQUAL', label: '<= (Less or Equal)' },
+                      { value: 'LESS_THAN', label: '< (Less Than)' },
+                    ]}
                   />
                 </div>
+
+                <Input
+                  label="Target Value"
+                  type="text"
+                  value={formData.conditionValue}
+                  onChange={(e) => setFormData({ ...formData, conditionValue: e.target.value })}
+                  placeholder="e.g. 5"
+                  required
+                />
               </div>
             )}
           </div>
 
-          {/* Action Section */}
-          <div className="p-3 bg-brand-50/50 rounded-lg border border-brand-100 space-y-2">
-            <label className="text-xs font-semibold text-brand-900 flex items-center gap-1.5">
-              <Send className="h-3.5 w-3.5 text-brand-600" />
-              Action: Trigger Campaign (THEN)
-            </label>
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-1">
-                Select Target Campaign <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={formData.campaignId}
-                onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
-                required
-                className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-              >
-                <option value="">-- Choose Campaign --</option>
-                {campaigns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.channel})
-                  </option>
-                ))}
-              </select>
+          {/* Section 4: Action Dispatch (THEN) */}
+          <div className="form-section-primary">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+              <Send size={15} style={{ color: 'var(--color-primary)' }} />
+              <span className="form-section-title" style={{ color: 'var(--color-primary)' }}>
+                Action: Dispatch Campaign (THEN)
+              </span>
             </div>
+
+            <Select
+              label="Target Campaign"
+              required
+              value={formData.campaignId}
+              onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
+              options={[
+                { value: '', label: '-- Select Campaign to Dispatch --' },
+                ...campaigns.map((c) => ({
+                  value: c.id,
+                  label: `${c.name} (${c.channel})`,
+                })),
+              ]}
+              helperText="Dispatches personalized reward or message automatically to the customer."
+            />
           </div>
 
-          {/* Policy & Safeguards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Execution Cooldown (Hours)
-              </label>
+          {/* Section 5: Policy & Safeguards */}
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <h4 className="form-section-title">
+                  <Shield size={15} style={{ color: 'var(--color-text-secondary)' }} />
+                  Safeguards & Frequency Caps
+                </h4>
+                <p className="form-section-desc">Prevent over-messaging and limit duplicate executions.</p>
+              </div>
+            </div>
+
+            <div className="form-grid-2">
               <Input
+                label="Cooldown (Hours)"
                 type="number"
                 min="0"
                 value={formData.cooldownHours}
                 onChange={(e) => setFormData({ ...formData, cooldownHours: Number(e.target.value) })}
+                helperText="Min hours between triggers for the same guest"
               />
-              <span className="text-[10px] text-gray-400">Min time between triggers per customer</span>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Max Executions Per Customer
-              </label>
               <Input
+                label="Lifetime Cap Per Guest"
                 type="number"
                 min="1"
                 placeholder="Unlimited"
                 value={formData.maxExecutionsPerCustomer}
-                onChange={(e) =>
-                  setFormData({ ...formData, maxExecutionsPerCustomer: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, maxExecutionsPerCustomer: e.target.value })}
+                helperText="Optional max total times a guest can receive this"
               />
-              <span className="text-[10px] text-gray-400">Optional lifetime limit per customer</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+          {/* Form Actions */}
+          <div className="form-actions">
             <Button
               type="button"
               variant="outline"
@@ -1596,93 +1613,102 @@ export const BusinessAutomationsView: React.FC<BusinessAutomationsViewProps> = (
         isOpen={simModalOpen}
         onClose={() => setSimModalOpen(false)}
         title="Simulate Event Trigger"
+        maxWidth="540px"
       >
-        <form onSubmit={handleRunSimulation} className="space-y-4">
-          <p className="text-xs text-gray-500">
+        <form onSubmit={handleRunSimulation} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             Dispatch a test event to verify automation condition matching, idempotency, and Phase 22 delivery queueing.
           </p>
 
           {simError && (
-            <div className="p-2.5 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-lg">
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-4)',
+                backgroundColor: 'var(--color-danger-subtle)',
+                border: '1px solid var(--color-danger-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-danger-text)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
               {simError}
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Select Customer <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={simCustomerId}
-              onChange={(e) => setSimCustomerId(e.target.value)}
-              required
-              className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-            >
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.phone})
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Select Test Customer"
+            required
+            value={simCustomerId}
+            onChange={(e) => setSimCustomerId(e.target.value)}
+            options={customers.map((c) => ({
+              value: c.id,
+              label: `${c.name} (${c.phone})`,
+            }))}
+          />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Event Type
-              </label>
-              <select
-                value={simEventType}
-                onChange={(e) => setSimEventType(e.target.value)}
-                className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-              >
-                {SUPPORTED_TRIGGERS.map((t) => (
-                  <option key={t.type} value={t.type}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-grid-2">
+            <Select
+              label="Event Type"
+              value={simEventType}
+              onChange={(e) => setSimEventType(e.target.value)}
+              options={SUPPORTED_TRIGGERS.map((t) => ({
+                value: t.type,
+                label: t.label,
+              }))}
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Branch Scope
-              </label>
-              <select
-                value={simBranchId}
-                onChange={(e) => setSimBranchId(e.target.value)}
-                className="border border-gray-200 rounded-lg py-2 px-3 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
-              >
-                <option value="">Default Customer Branch</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Branch Scope"
+              value={simBranchId}
+              onChange={(e) => setSimBranchId(e.target.value)}
+              options={[
+                { value: '', label: 'Default Customer Branch' },
+                ...branches.map((b) => ({ value: b.id, label: b.name })),
+              ]}
+            />
           </div>
 
           {simResult && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs space-y-1">
-              <div className="font-semibold text-emerald-900 flex items-center gap-1.5">
-                <CheckCircle className="h-4 w-4 text-emerald-600" />
-                Event Processed Successfully
+            <div
+              style={{
+                padding: 'var(--space-4)',
+                backgroundColor: 'var(--color-success-subtle)',
+                border: '1px solid var(--color-success-border)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--font-size-xs)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-2)',
+              }}
+            >
+              <div style={{ fontWeight: 600, color: 'var(--color-success-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle size={16} />
+                <span>Event Processed Successfully</span>
               </div>
-              <div className="text-emerald-700">
-                Matched Rules: <span className="font-bold">{simResult.matchedRulesCount}</span>
+              <div style={{ color: 'var(--color-success-text)' }}>
+                Matched Rules: <strong>{simResult.matchedRulesCount}</strong>
               </div>
               {simResult.executions?.length > 0 && (
-                <div className="mt-2 space-y-1">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                   {simResult.executions.map((ex: any, idx: number) => (
                     <div
                       key={idx}
-                      className="p-1.5 bg-white/75 rounded border border-emerald-100 flex items-center justify-between font-mono text-[11px]"
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--color-border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontFamily: 'monospace',
+                        fontSize: '11px',
+                      }}
                     >
                       <span>Execution #{idx + 1}</span>
-                      <span className="font-bold text-gray-800">{ex.status}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{ex.status}</span>
                       {ex.skipReason && (
-                        <span className="text-amber-600">({ex.skipReason})</span>
+                        <span style={{ color: 'var(--color-warning-text)' }}>({ex.skipReason})</span>
                       )}
                     </div>
                   ))}
@@ -1691,7 +1717,7 @@ export const BusinessAutomationsView: React.FC<BusinessAutomationsViewProps> = (
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+          <div className="form-actions">
             <Button
               type="button"
               variant="outline"

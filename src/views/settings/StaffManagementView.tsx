@@ -354,81 +354,60 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = () => {
         title={editingStaff ? `Edit ${editingStaff.user.name}` : 'Invite Team Member'}
         maxWidth="540px"
       >
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {!editingStaff && (
             <>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Full Name *
-                </label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Sarah Jenkins"
-                  required
-                />
-              </div>
+              <Input
+                label="Full Name"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g. Sarah Jenkins"
+              />
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Email Address *
-                </label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="sarah@example.com"
-                  required
-                />
-              </div>
+              <Input
+                label="Email Address"
+                required
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="sarah@example.com"
+              />
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Phone Number (Optional)
-                </label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
-                />
-              </div>
+              <Input
+                label="Phone Number (Optional)"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+1 (555) 000-0000"
+              />
             </>
           )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-              Assigned Role *
-            </label>
-            <Select
-              value={formData.roleId}
-              onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
-              options={roles.map((r) => ({
-                value: r.id,
-                label: `${r.name} — ${r.name === 'OWNER' ? 'Full business ownership' : r.name === 'MANAGER' ? 'Manage branches & staff' : 'Cashier stamps & rewards'}`,
-              }))}
-            />
-          </div>
+          <Select
+            label="Assigned Role"
+            required
+            value={formData.roleId}
+            onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
+            options={roles.map((r) => ({
+              value: r.id,
+              label: `${r.name} — ${r.name === 'OWNER' ? 'Full business ownership' : r.name === 'MANAGER' ? 'Manage branches & staff' : 'Cashier stamps & rewards'}`,
+            }))}
+          />
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-              Branch Assignment
-            </label>
-            <Select
-              value={formData.branchId}
-              onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-              options={[
-                { value: '', label: 'All Branches (Enterprise / Floating)' },
-                ...branches.map((b) => ({ value: b.id, label: b.name })),
-              ]}
-            />
-          </div>
+          <Select
+            label="Branch Assignment"
+            value={formData.branchId}
+            onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+            options={[
+              { value: '', label: 'All Branches (Enterprise / Floating)' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
 
           {editingStaff && (
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                Membership Status
-              </label>
               <Select
+                label="Membership Status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                 options={[
@@ -444,7 +423,7 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+          <div className="form-actions">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={submitting}>
               Cancel
             </Button>
