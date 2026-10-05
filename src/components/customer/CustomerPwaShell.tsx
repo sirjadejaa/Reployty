@@ -69,9 +69,22 @@ export const CustomerPwaShell: React.FC<CustomerPwaShellProps> = ({
                 fontWeight: 700,
                 fontSize: '16px',
                 border: `1px solid ${primaryColor}30`,
+                overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
-              {business?.name ? business.name.charAt(0) : 'R'}
+              {business?.logo ? (
+                <img
+                  src={business.logo}
+                  alt={business.name || 'Logo'}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span>{business?.name ? business.name.charAt(0) : 'R'}</span>
+              )}
             </div>
             <div>
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>

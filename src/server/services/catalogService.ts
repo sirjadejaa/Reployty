@@ -2,6 +2,7 @@ import { prisma } from '../db/client';
 import { TenantContext, requirePermission } from '../auth/tenantContext';
 import { createAuditLog } from './auditService';
 import { CustomerSessionContext } from './customerAuthService';
+import { requireFeature } from './entitlementService';
 import {
   CreateMenuItemInput,
   UpdateMenuItemInput,
@@ -48,6 +49,7 @@ export async function createMenu(
   data: { name: string; isActive?: boolean }
 ) {
   requirePermission(ctx, 'CATALOG_MANAGE');
+  await requireFeature(ctx, 'CATALOG_MENU');
   const name = data.name?.trim();
   if (!name) {
     throw new CatalogOperationError('Menu name is required', 'VALIDATION_ERROR');

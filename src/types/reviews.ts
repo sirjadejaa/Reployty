@@ -74,7 +74,11 @@ export interface CustomerReviewState {
     createdAt: string;
   } | null;
   googleReviewUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  businessLogo?: string | null;
   businessName: string;
+  category?: string | null;
 }
 
 export interface GenerateAiDraftPayload {

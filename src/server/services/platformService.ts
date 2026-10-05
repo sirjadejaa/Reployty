@@ -126,6 +126,11 @@ export async function getPlatformBusinesses(params: PlatformPaginationParams) {
           },
           take: 1,
         },
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
       },
     }),
     prisma.business.count({ where }),
@@ -145,6 +150,9 @@ export async function getPlatformBusinesses(params: PlatformPaginationParams) {
     createdAt: biz.createdAt.toISOString(),
     ownerName: biz.staff[0]?.user?.name || 'Unassigned',
     ownerEmail: biz.staff[0]?.user?.email || null,
+    planId: biz.subscription?.plan?.id || null,
+    planName: biz.subscription?.plan?.name || 'Free Forever',
+    planSlug: biz.subscription?.plan?.slug || 'free',
     branchesCount: biz._count.branches,
     staffCount: biz._count.staff,
     customersCount: biz._count.customers,
@@ -202,6 +210,11 @@ export async function getPlatformBusinessById(businessId: string) {
           offers: true,
         },
       },
+      subscription: {
+        include: {
+          plan: true,
+        },
+      },
     },
   });
 
@@ -242,6 +255,9 @@ export async function getPlatformBusinessById(businessId: string) {
     currency: business.currency,
     primaryColor: business.primaryColor,
     secondaryColor: business.secondaryColor,
+    planId: business.subscription?.plan?.id || null,
+    planName: business.subscription?.plan?.name || 'Free Forever',
+    planSlug: business.subscription?.plan?.slug || 'free',
     onboardingCompleted: business.onboardingCompleted,
     createdAt: business.createdAt.toISOString(),
     branches: business.branches.map(b => ({

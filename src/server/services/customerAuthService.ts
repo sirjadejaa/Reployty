@@ -40,6 +40,9 @@ export interface CustomerSessionContext {
     themePreset: string;
     primaryColor: string;
     logo: string | null;
+    googleReviewUrl?: string | null;
+    instagramUrl?: string | null;
+    facebookUrl?: string | null;
   };
 }
 
@@ -126,6 +129,9 @@ export async function validateCustomerSession(sessionToken: string): Promise<Cus
       themePreset: session.business.themePreset,
       primaryColor: session.business.primaryColor,
       logo: session.business.logo,
+      googleReviewUrl: session.business.googleReviewUrl,
+      instagramUrl: session.business.instagramUrl,
+      facebookUrl: session.business.facebookUrl,
     },
   };
 }

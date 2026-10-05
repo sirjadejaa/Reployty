@@ -22,7 +22,9 @@ import {
   adminGetAllPayments,
   adminUpdateSubscriptionStatus,
   handlePaymentWebhook,
+  adminAssignBusinessPlan,
 } from '../services/billingService';
+import { PLATFORM_FEATURES } from '../services/entitlementService';
 import { UsageMeterService } from '../services/usageMeterService';
 import { BusinessStatus, UserStatus, MembershipStatus, SubscriptionStatus, OnboardingRequestStatus } from '@prisma/client';
 import {
@@ -291,6 +293,27 @@ adminRouter.put('/plans/:id', async (req: TenantRequest, res: Response): Promise
     res.json(plan);
   } catch (err: any) {
     res.status(400).json({ error: err.message, code: 'PLAN_ERROR' });
+  }
+});
+
+// GET /api/admin/features
+adminRouter.get('/features', async (_req: TenantRequest, res: Response): Promise<void> => {
+  res.json(PLATFORM_FEATURES);
+});
+
+// PUT /api/admin/businesses/:id/plan
+adminRouter.put('/businesses/:id/plan', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { planId } = req.body;
+    if (!planId) {
+      res.status(400).json({ error: 'planId is required', code: 'BAD_REQUEST' });
+      return;
+    }
+    const result = await adminAssignBusinessPlan(req.tenantContext!, String(req.params.id), String(planId));
+    res.json(result);
+  } catch (err: any) {
+    const status = err.statusCode || 400;
+    res.status(status).json({ error: err.message, code: 'PLAN_ASSIGN_ERROR' });
   }
 });
 

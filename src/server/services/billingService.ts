@@ -652,3 +652,83 @@ export async function handlePaymentWebhook(payload: WebhookEventPayload): Promis
 
   return { processed: true, payment };
 }
+
+/**
+ * Super Admin manual plan assignment for a business tenant.
+ * Updates subscription and business plan, resets grace periods, and creates audit log.
+ */
+export async function adminAssignBusinessPlan(
+  ctx: TenantContext,
+  businessId: string,
+  planId: string
+) {
+  requireSuperAdmin(ctx);
+
+  const [business, targetPlan] = await Promise.all([
+    prisma.business.findUnique({ where: { id: businessId } }),
+    prisma.plan.findUnique({ where: { id: planId } }),
+  ]);
+
+  if (!business) {
+    throw new BillingError('Business not found', 404);
+  }
+  if (!targetPlan) {
+    throw new BillingError('Target plan not found', 404);
+  }
+
+  const currentSub = await getBusinessSubscription(businessId);
+  const now = new Date();
+  const periodDurationDays = currentSub.billingInterval === BillingInterval.YEARLY ? 365 : 30;
+
+  const updatedSub = await prisma.subscription.update({
+    where: { id: currentSub.id },
+    data: {
+      planId: targetPlan.id,
+      status: SubscriptionStatus.ACTIVE,
+      currentPeriodStart: now,
+      currentPeriodEnd: targetPlan.slug === 'free'
+        ? new Date(now.getTime() + 365 * 10 * 86400000)
+        : new Date(now.getTime() + periodDurationDays * 86400000),
+      cancelAtPeriodEnd: false,
+      gracePeriodEndsAt: null,
+    },
+    include: { plan: true },
+  });
+
+  // Also update business.planId
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { planId: targetPlan.id },
+  });
+
+  await createAuditLog(ctx, {
+    action: 'BUSINESS_PLAN_CHANGED',
+    entityType: 'BUSINESS',
+    entityId: businessId,
+    previousState: {
+      planId: currentSub.planId,
+      planName: currentSub.plan.name,
+      status: currentSub.status,
+    } as unknown as Prisma.InputJsonValue,
+    newState: {
+      planId: targetPlan.id,
+      planName: targetPlan.name,
+      status: updatedSub.status,
+      assignedBy: (ctx as any)?.user?.id || (ctx as any)?.userId || 'SUPER_ADMIN',
+    } as unknown as Prisma.InputJsonValue,
+  });
+
+  return {
+    success: true,
+    businessId,
+    subscription: updatedSub,
+    plan: {
+      id: targetPlan.id,
+      name: targetPlan.name,
+      slug: targetPlan.slug,
+      features: (targetPlan.features as string[]) || [],
+      priceMinor: targetPlan.priceMinor,
+      billingInterval: updatedSub.billingInterval,
+    },
+  };
+}

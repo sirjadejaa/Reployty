@@ -169,11 +169,129 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
       />
 
       <div className="responsive-two-col">
-        {/* Left Column: Preset Selection */}
+        {/* Left Column: Business Workspace Logo & Preset Selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {/* Primary Section: Business Workspace Logo Configuration */}
+          <Card style={{ padding: 'var(--space-5)', border: '2px solid #E0E7FF' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+              <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, margin: 0, color: 'var(--color-text-primary)' }}>
+                Business Workspace Logo
+              </h2>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#EEF2FF',
+                  color: '#4F46E5',
+                  border: '1px solid #C7D2FE',
+                }}
+              >
+                Primary Brand Asset
+              </span>
+            </div>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4)' }}>
+              Your logo appears in the top navigation header, business switcher, dashboard welcome header, and on every customer's digital loyalty pass.
+            </p>
+
+            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {/* Live Preview Avatar */}
+              <div
+                style={{
+                  width: '84px',
+                  height: '84px',
+                  borderRadius: 'var(--radius-lg)',
+                  backgroundColor: 'var(--color-primary-subtle)',
+                  border: '2px solid var(--color-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={() => {
+                      addToast({
+                        type: 'warning',
+                        title: 'Invalid image URL',
+                        message: 'The provided logo URL could not be loaded. Please check the URL.',
+                      });
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                    {currentBusiness.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              {/* URL input and Upload controls */}
+              <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <Input
+                  label="Logo Image URL (or paste image data URI)"
+                  placeholder="https://example.com/logo.png"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--color-surface-muted)',
+                      border: '1px solid var(--color-border)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      color: 'var(--color-text-primary)',
+                      transition: 'background-color 0.15s',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>Upload Image File</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  {logoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl('')}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-danger)' }}
+                    >
+                      <Trash2 size={13} />
+                      <span>Remove Logo</span>
+                    </Button>
+                  )}
+                </div>
+
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  Accepted: Direct HTTPS image links or PNG/JPEG uploads up to 500KB. Defaults to initials badge if empty.
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Secondary Section: Theme Preset Selection */}
           <Card style={{ padding: 'var(--space-5)' }}>
             <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, margin: '0 0 var(--space-3)' }}>
-              Select Industry Theme Preset
+              Industry Theme Preset
             </h2>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4)' }}>
               Controlled design tokens ensure consistent legibility, contrast, and visual harmony across customer mobile passes.
@@ -238,108 +356,6 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
                   </div>
                 );
               })}
-            </div>
-          </Card>
-
-          {/* Business Workspace Logo Configuration Card */}
-          <Card style={{ padding: 'var(--space-5)' }}>
-            <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>
-              Business Workspace Logo
-            </h2>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4)' }}>
-              Displayed in the navigation header, business switcher, dashboard welcome badge, and customer digital cards.
-            </p>
-
-            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              {/* Live Preview Avatar */}
-              <div
-                style={{
-                  width: '76px',
-                  height: '76px',
-                  borderRadius: 'var(--radius-lg)',
-                  backgroundColor: 'var(--color-primary-subtle)',
-                  border: '2px solid var(--color-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  boxShadow: 'var(--shadow-xs)',
-                }}
-              >
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt="Logo preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={() => {
-                      addToast({
-                        type: 'warning',
-                        title: 'Invalid image URL',
-                        message: 'The provided logo URL could not be loaded. Please check the URL.',
-                      });
-                    }}
-                  />
-                ) : (
-                  <span style={{ fontSize: '26px', fontWeight: 700, color: 'var(--color-primary)' }}>
-                    {currentBusiness.name.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </div>
-
-              {/* URL input and Upload controls */}
-              <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <Input
-                  label="Logo Image URL (or paste image data URI)"
-                  placeholder="https://example.com/logo.png"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                />
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  <label
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--color-surface-muted)',
-                      border: '1px solid var(--color-border)',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      color: 'var(--color-text-primary)',
-                      transition: 'background-color 0.15s',
-                    }}
-                  >
-                    <Upload size={14} />
-                    <span>Upload Image File</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-
-                  {logoUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setLogoUrl('')}
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-danger)' }}
-                    >
-                      <Trash2 size={13} />
-                      <span>Remove Logo</span>
-                    </Button>
-                  )}
-                </div>
-
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Accepted: Direct HTTPS image links or PNG/JPEG uploads up to 500KB. Defaults to initials badge if empty.
-                </span>
-              </div>
             </div>
           </Card>
         </div>

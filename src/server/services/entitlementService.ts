@@ -3,18 +3,86 @@ import { TenantContext } from '../auth/tenantContext';
 import { Plan, Subscription, SubscriptionStatus } from '@prisma/client';
 
 export type FeatureKey =
+  // Canonical identifiers
+  | 'CUSTOMER_MANAGEMENT'
+  | 'CUSTOMER_QR_JOINING'
+  | 'LOYALTY_STAMPS'
+  | 'LOYALTY_POINTS'
+  | 'LOYALTY_PROGRAMS'
+  | 'REWARDS_CATALOG'
+  | 'REWARD_REDEMPTION'
+  | 'OFFERS'
+  | 'CAMPAIGNS'
+  | 'CUSTOMER_REVIEWS'
+  | 'AI_REVIEW_ASSISTANT'
+  | 'SOCIAL_INTEGRATIONS'
+  | 'CUSTOMER_SEGMENTS'
+  | 'RETENTION_WORKFLOWS'
+  | 'AUTOMATIONS'
+  | 'CATALOG_MENU'
+  | 'BASIC_ANALYTICS'
+  | 'ADVANCED_ANALYTICS'
+  | 'BUSINESS_BRANDING'
+  // Legacy aliases for backward compatibility
   | 'CUSTOMER_CRM'
   | 'LOYALTY'
   | 'REWARDS'
-  | 'OFFERS'
   | 'REVIEWS'
   | 'CATALOG'
   | 'BRANCHES'
   | 'STAFF'
   | 'ANALYTICS'
-  | 'AI_REVIEW_ASSISTANT'
-  | 'EXPORTS'
-  | 'CAMPAIGNS';
+  | 'EXPORTS';
+
+export interface PlatformFeature {
+  id: FeatureKey;
+  name: string;
+  category: 'CUSTOMER' | 'LOYALTY' | 'REWARDS' | 'ENGAGEMENT' | 'CRM' | 'AUTOMATION' | 'CATALOG' | 'ANALYTICS' | 'BRANDING';
+  description: string;
+}
+
+export const PLATFORM_FEATURES: PlatformFeature[] = [
+  // CUSTOMER
+  { id: 'CUSTOMER_MANAGEMENT', name: 'Customer Management & CRM', category: 'CUSTOMER', description: 'Store regular customer profiles, contact info, and visit history.' },
+  { id: 'CUSTOMER_QR_JOINING', name: 'Customer QR Joining & Passes', category: 'CUSTOMER', description: 'Self-serve mobile QR joining and digital pass wallet.' },
+
+  // LOYALTY
+  { id: 'LOYALTY_STAMPS', name: 'Stamp Cards & Rewards', category: 'LOYALTY', description: 'Multi-stamp digital loyalty passes with automated reward unlocks.' },
+  { id: 'LOYALTY_POINTS', name: 'Points Engine', category: 'LOYALTY', description: 'Spend-to-points loyalty accumulation and conversion.' },
+  { id: 'LOYALTY_PROGRAMS', name: 'Loyalty Programs Management', category: 'LOYALTY', description: 'Configure active loyalty programs and earning rules.' },
+
+  // REWARDS
+  { id: 'REWARDS_CATALOG', name: 'Rewards Catalog', category: 'REWARDS', description: 'Manage unlockable customer perks, vouchers, and rewards.' },
+  { id: 'REWARD_REDEMPTION', name: 'Staff Redemption Terminal', category: 'REWARDS', description: 'Counter staff terminal for verifying single-use voucher codes.' },
+
+  // ENGAGEMENT
+  { id: 'OFFERS', name: 'Special Offers & Promotions', category: 'ENGAGEMENT', description: 'Create time-limited promos, flash discounts, and deals.' },
+  { id: 'CAMPAIGNS', name: 'Outreach Campaigns & Messaging', category: 'ENGAGEMENT', description: 'Broadcast SMS, WhatsApp, and targeted marketing outreach.' },
+  { id: 'CUSTOMER_REVIEWS', name: 'Customer Reviews & Reputation', category: 'ENGAGEMENT', description: 'Capture 1-5 star feedback and route positive ratings to Google.' },
+  { id: 'AI_REVIEW_ASSISTANT', name: 'AI Review Assistant', category: 'ENGAGEMENT', description: 'AI-assisted response generation and customer review drafting.' },
+  { id: 'SOCIAL_INTEGRATIONS', name: 'Social Follow Links', category: 'ENGAGEMENT', description: 'Connect Instagram and Facebook profiles on customer cards.' },
+
+  // CRM
+  { id: 'CUSTOMER_SEGMENTS', name: 'Customer Segments & Tags', category: 'CRM', description: 'Filter VIP, At-Risk, New, and Lost regular customer cohorts.' },
+  { id: 'RETENTION_WORKFLOWS', name: 'Automated Retention Workflows', category: 'CRM', description: 'Trigger win-back offers when customers become inactive.' },
+
+  // AUTOMATION
+  { id: 'AUTOMATIONS', name: 'Event-driven Automation Engine', category: 'AUTOMATION', description: 'Custom trigger-condition-action workflow automation.' },
+
+  // CATALOG
+  { id: 'CATALOG_MENU', name: 'Menu, Products & Services Catalog', category: 'CATALOG', description: 'Customer-facing digital menus and catalog showcase.' },
+
+  // ANALYTICS
+  { id: 'BASIC_ANALYTICS', name: 'Basic Analytics & Overview', category: 'ANALYTICS', description: 'Key performance metrics, visit trends, and staff totals.' },
+  { id: 'ADVANCED_ANALYTICS', name: 'Advanced Insights & Attribution', category: 'ANALYTICS', description: 'Deep retention cohorts, campaign ROI, and branch comparison.' },
+
+  // BRANDING
+  { id: 'BUSINESS_BRANDING', name: 'Business Logo & Theme Presets', category: 'BRANDING', description: 'Custom workspace logo, card styling, and brand colors.' },
+];
+
+export function getAllPlatformFeatures(): PlatformFeature[] {
+  return PLATFORM_FEATURES;
+}
 
 export type LimitKey =
   | 'maxCustomers'
@@ -86,16 +154,22 @@ export async function getBusinessSubscription(businessId: string): Promise<Subsc
 
   const freePlan = (await prisma.plan.findUnique({ where: { slug: 'free' } })) || (getDefaultFreePlan() as Plan);
 
-  // If no subscription exists, auto-provision a Free plan subscription
+  // If no subscription exists, auto-provision a subscription matching business.planId or Free
   if (!sub) {
+    const biz = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { planId: true },
+    });
+    const targetPlanId = biz?.planId || freePlan.id;
+
     sub = await prisma.subscription.create({
       data: {
         businessId,
-        planId: freePlan.id,
+        planId: targetPlanId,
         status: SubscriptionStatus.ACTIVE,
         billingInterval: 'MONTHLY',
         currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 365 * 10 * 86400000), // 10 years for free
+        currentPeriodEnd: new Date(Date.now() + 365 * 10 * 86400000),
       },
       include: { plan: true },
     });
@@ -162,7 +236,8 @@ export async function getBusinessPlan(businessId: string): Promise<Plan> {
  * Checks whether a business is entitled to a specific feature.
  * One source of truth for all feature access checks.
  */
-export async function hasFeature(businessId: string, featureKey: FeatureKey): Promise<boolean> {
+export async function hasFeature(businessId: string, featureKey: FeatureKey | string): Promise<boolean> {
+  const normKey = String(featureKey || '').toUpperCase().trim();
   const sub = await getBusinessSubscription(businessId);
 
   // Suspended businesses have no feature access
@@ -170,13 +245,72 @@ export async function hasFeature(businessId: string, featureKey: FeatureKey): Pr
     return false;
   }
 
-  const features = (sub.plan.features as string[]) || [];
+  const rawFeatures = (sub.plan.features as string[]) || [];
+  const features = rawFeatures.map(f => String(f).toUpperCase().trim());
 
-  if (featureKey === 'CAMPAIGNS') {
-    return features.includes('CAMPAIGNS') || sub.plan.slug !== 'free';
+  // Direct match
+  if (features.includes(normKey)) {
+    return true;
   }
 
-  return features.includes(featureKey);
+  // Backward compatibility alias checks
+  if (normKey === 'CUSTOMER_MANAGEMENT' || normKey === 'CUSTOMER_CRM') {
+    return features.includes('CUSTOMER_MANAGEMENT') || features.includes('CUSTOMER_CRM');
+  }
+  if (normKey === 'CUSTOMER_QR_JOINING' || normKey === 'QR') {
+    return (
+      features.includes('CUSTOMER_QR_JOINING') ||
+      features.includes('CUSTOMER_CRM') ||
+      features.includes('CUSTOMER_MANAGEMENT') ||
+      features.includes('QR')
+    );
+  }
+  if (normKey === 'LOYALTY' || normKey === 'LOYALTY_PROGRAMS') {
+    return (
+      features.includes('LOYALTY') ||
+      features.includes('LOYALTY_PROGRAMS') ||
+      features.includes('LOYALTY_STAMPS') ||
+      features.includes('LOYALTY_POINTS')
+    );
+  }
+  if (normKey === 'LOYALTY_STAMPS') {
+    return features.includes('LOYALTY_STAMPS') || features.includes('LOYALTY');
+  }
+  if (normKey === 'LOYALTY_POINTS') {
+    return features.includes('LOYALTY_POINTS') || features.includes('LOYALTY');
+  }
+  if (normKey === 'REWARDS' || normKey === 'REWARDS_CATALOG' || normKey === 'REWARD_REDEMPTION') {
+    return features.includes('REWARDS') || features.includes('REWARDS_CATALOG') || features.includes('REWARD_REDEMPTION');
+  }
+  if (normKey === 'REVIEWS' || normKey === 'CUSTOMER_REVIEWS') {
+    return features.includes('REVIEWS') || features.includes('CUSTOMER_REVIEWS');
+  }
+  if (normKey === 'CATALOG' || normKey === 'CATALOG_MENU') {
+    return features.includes('CATALOG') || features.includes('CATALOG_MENU');
+  }
+  if (normKey === 'ANALYTICS' || normKey === 'BASIC_ANALYTICS') {
+    return features.includes('ANALYTICS') || features.includes('BASIC_ANALYTICS') || features.includes('ADVANCED_ANALYTICS');
+  }
+  if (normKey === 'ADVANCED_ANALYTICS') {
+    return features.includes('ADVANCED_ANALYTICS') || (sub.plan.slug === 'growth' || sub.plan.slug === 'enterprise');
+  }
+  if (normKey === 'RETENTION_WORKFLOWS' || normKey === 'AUTOMATIONS') {
+    return features.includes('RETENTION_WORKFLOWS') || features.includes('AUTOMATIONS');
+  }
+  if (normKey === 'CAMPAIGNS') {
+    return features.includes('CAMPAIGNS') || sub.plan.slug !== 'free';
+  }
+  if (normKey === 'SOCIAL_INTEGRATIONS') {
+    return features.includes('SOCIAL_INTEGRATIONS') || features.includes('CUSTOMER_REVIEWS') || features.includes('REVIEWS');
+  }
+  if (normKey === 'BUSINESS_BRANDING') {
+    return features.includes('BUSINESS_BRANDING') || sub.plan.slug !== 'free';
+  }
+  if (normKey === 'BRANCHES' || normKey === 'STAFF') {
+    return true; // Core operational capabilities
+  }
+
+  return false;
 }
 
 /**

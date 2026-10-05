@@ -64,6 +64,9 @@ export interface PlatformBusiness {
   staffCount: number;
   customersCount: number;
   programsCount: number;
+  planId?: string | null;
+  planName?: string | null;
+  planSlug?: string | null;
 }
 
 export interface PlatformBusinessDetail extends PlatformBusiness {

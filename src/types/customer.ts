@@ -13,6 +13,9 @@ export interface PublicBusinessContext {
   email: string | null;
   address: string | null;
   city: string | null;
+  googleReviewUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
 }
 
 export interface PublicBranchContext {

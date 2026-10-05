@@ -41,6 +41,13 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
   const [statusReason, setStatusReason] = useState<string>('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
 
+  // Plan Assignment Modal State
+  const [availablePlans, setAvailablePlans] = useState<Array<{ id: string; name: string; slug: string; priceMinor: number }>>([]);
+  const [planTargetBusiness, setPlanTargetBusiness] = useState<PlatformBusiness | null>(null);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState<boolean>(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [isUpdatingPlan, setIsUpdatingPlan] = useState<boolean>(false);
+
   const fetchBusinesses = async () => {
     try {
       setIsLoading(true);
@@ -77,10 +84,62 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
     fetchBusinesses();
   }, [page, statusFilter]);
 
+  useEffect(() => {
+    fetch('/api/admin/plans', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setAvailablePlans(data))
+      .catch(() => {});
+  }, []);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     fetchBusinesses();
+  };
+
+  const openPlanModal = (biz: PlatformBusiness) => {
+    setPlanTargetBusiness(biz);
+    setSelectedPlanId(biz.planId || (availablePlans[0]?.id ?? ''));
+    setIsPlanModalOpen(true);
+  };
+
+  const handleConfirmPlanChange = async () => {
+    if (!planTargetBusiness || !selectedPlanId) return;
+
+    try {
+      setIsUpdatingPlan(true);
+      const res = await fetch(`/api/admin/businesses/${planTargetBusiness.id}/plan`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ planId: selectedPlanId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to update business plan');
+      }
+
+      addToast({
+        type: 'success',
+        title: 'Plan Assigned Successfully',
+        message: `${planTargetBusiness.name} has been switched to ${json.planName || 'selected plan'}.`,
+      });
+
+      setIsPlanModalOpen(false);
+      await fetchBusinesses();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Plan Assignment Failed',
+        message: err.message,
+      });
+    } finally {
+      setIsUpdatingPlan(false);
+    }
   };
 
   const openStatusModal = (biz: PlatformBusiness, nextStatus: 'ACTIVE' | 'SUSPENDED') => {
@@ -365,6 +424,39 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
                   </div>
 
                   <div className="mobile-data-card-row">
+                    <span className="mobile-data-card-label">Plan</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#EFF6FF',
+                          color: '#1D4ED8',
+                        }}
+                      >
+                        {biz.planName || 'Free Starter'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openPlanModal(biz)}
+                        style={{
+                          fontSize: '11px',
+                          color: '#4F46E5',
+                          background: 'none',
+                          border: 'none',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                        }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mobile-data-card-row">
                     <span className="mobile-data-card-label">Owner</span>
                     <span className="mobile-data-card-value">
                       {biz.ownerName} {biz.ownerEmail ? `(${biz.ownerEmail})` : ''}
@@ -433,6 +525,9 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
                     Category
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                    Plan
+                  </th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
                     Owner
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
@@ -490,6 +585,40 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
                         >
                           {biz.category}
                         </span>
+                      </td>
+
+                      {/* Plan */}
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: '#EFF6FF',
+                              color: '#1D4ED8',
+                            }}
+                          >
+                            {biz.planName || 'Free Starter'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openPlanModal(biz)}
+                            style={{
+                              fontSize: '11px',
+                              color: '#4F46E5',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              padding: '2px 4px',
+                            }}
+                            title="Change Subscription Plan"
+                          >
+                            Change
+                          </button>
+                        </div>
                       </td>
 
                       {/* Owner */}
@@ -760,6 +889,87 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
               disabled={isUpdatingStatus}
             >
               {isUpdatingStatus ? 'Updating...' : pendingStatus === 'SUSPENDED' ? 'Confirm Suspension' : 'Confirm Reactivation'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Plan Assignment Modal */}
+      <Modal
+        isOpen={isPlanModalOpen}
+        onClose={() => !isUpdatingPlan && setIsPlanModalOpen(false)}
+        title={`Assign Subscription Plan: ${planTargetBusiness?.name}`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
+            Switching plans will immediately grant or adjust feature entitlements and capacity limits for <strong>{planTargetBusiness?.name}</strong> across all staff accounts and customer portals.
+          </p>
+
+          <div>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#334155',
+                marginBottom: 6,
+              }}
+            >
+              Select Target Plan
+            </label>
+            <select
+              value={selectedPlanId}
+              onChange={(e) => setSelectedPlanId(e.target.value)}
+              style={{
+                width: '100%',
+                height: 40,
+                padding: '0 12px',
+                borderRadius: '6px',
+                border: '1px solid #CBD5E1',
+                fontSize: '14px',
+                backgroundColor: '#FFFFFF',
+                color: '#1E293B',
+                outline: 'none',
+              }}
+            >
+              {availablePlans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.slug}) — ₹{(p.priceMinor / 100).toLocaleString()}/mo
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div
+            style={{
+              padding: '12px',
+              backgroundColor: '#EFF6FF',
+              borderRadius: '8px',
+              border: '1px solid #BFDBFE',
+              fontSize: '12px',
+              color: '#1E40AF',
+              lineHeight: 1.4,
+            }}
+          >
+            <strong>Note:</strong> Active subscriptions will be updated without disruption. All audit logs for this change will be recorded under your Super Admin credentials.
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPlanModalOpen(false)}
+              disabled={isUpdatingPlan}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmPlanChange}
+              disabled={isUpdatingPlan || !selectedPlanId}
+            >
+              {isUpdatingPlan ? 'Assigning Plan...' : 'Confirm Plan Assignment'}
             </Button>
           </div>
         </div>

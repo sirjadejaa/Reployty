@@ -95,7 +95,7 @@ const NAV_SECTIONS: NavSectionConfig[] = [
     items: [
       { id: 'billing', label: 'Billing & Plans', icon: <CreditCard size={18} /> },
       { id: 'settings-business', label: 'Business Profile', icon: <Settings size={18} /> },
-      { id: 'settings-branding', label: 'Branding & Theme', icon: <Sparkles size={18} /> },
+      { id: 'settings-branding', label: 'Branding & Logo', icon: <Sparkles size={18} /> },
       { id: 'settings-messaging', label: 'Messaging Providers', icon: <MessageSquare size={18} /> },
       { id: 'settings', label: 'All Settings', icon: <Settings size={18} /> },
     ],

@@ -41,6 +41,9 @@ export async function resolvePublicQr(identifier: string) {
           address: true,
           city: true,
           status: true,
+          googleReviewUrl: true,
+          instagramUrl: true,
+          facebookUrl: true,
         },
       },
       branch: {
@@ -88,6 +91,9 @@ export async function resolvePublicQr(identifier: string) {
         email: qrRecord.business.email,
         address: qrRecord.business.address,
         city: qrRecord.business.city,
+        googleReviewUrl: qrRecord.business.googleReviewUrl,
+        instagramUrl: qrRecord.business.instagramUrl,
+        facebookUrl: qrRecord.business.facebookUrl,
       },
       branch: qrRecord.branch && qrRecord.branch.status === 'ACTIVE'
         ? {
@@ -119,6 +125,9 @@ export async function resolvePublicQr(identifier: string) {
       address: true,
       city: true,
       status: true,
+      googleReviewUrl: true,
+      instagramUrl: true,
+      facebookUrl: true,
       branches: {
         where: { isMainBranch: true, status: 'ACTIVE' },
         take: 1,
@@ -159,6 +168,9 @@ export async function resolvePublicQr(identifier: string) {
       email: business.email,
       address: business.address,
       city: business.city,
+      googleReviewUrl: business.googleReviewUrl,
+      instagramUrl: business.instagramUrl,
+      facebookUrl: business.facebookUrl,
     },
     branch: mainBranch,
   };

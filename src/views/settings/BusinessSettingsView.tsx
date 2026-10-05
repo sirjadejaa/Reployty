@@ -51,12 +51,12 @@ export const BusinessSettingsView: React.FC<BusinessSettingsViewProps> = ({ onNa
       actionLabel: 'Manage Team',
     },
     {
-      title: 'Theme & Brand Presets',
-      desc: 'Visual theme, customer mobile pass colors, and industry aesthetic presets.',
+      title: 'Branding & Logo',
+      desc: 'Upload business workspace logo, configure color palettes, and select industry theme presets.',
       icon: Palette,
       route: 'settings-branding' as AdminRoute,
       status: 'Active',
-      actionLabel: 'Customize Theme',
+      actionLabel: 'Manage Branding & Logo',
     },
     {
       title: 'Subscription & Billing',

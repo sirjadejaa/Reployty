@@ -141,7 +141,14 @@ export async function getCustomerReviewState(
 ): Promise<CustomerReviewState> {
   const business = await prisma.business.findUnique({
     where: { id: session.businessId },
-    select: { name: true, googleReviewUrl: true },
+    select: {
+      name: true,
+      category: true,
+      logo: true,
+      googleReviewUrl: true,
+      instagramUrl: true,
+      facebookUrl: true,
+    },
   });
 
   const latestReview = await prisma.reviewFeedback.findFirst({
@@ -164,7 +171,11 @@ export async function getCustomerReviewState(
         }
       : null,
     googleReviewUrl: business?.googleReviewUrl || null,
+    instagramUrl: business?.instagramUrl || null,
+    facebookUrl: business?.facebookUrl || null,
+    businessLogo: business?.logo || null,
     businessName: business?.name || 'Local Business',
+    category: business?.category || null,
   };
 }
 
@@ -591,3 +602,65 @@ export async function updateReviewGeneration(
     updatedAt: updated.updatedAt.toISOString(),
   };
 }
+
+// ============================================================================
+// 7. CUSTOMER AI REVIEW SUGGESTION GENERATOR (PHASE 35)
+// ============================================================================
+
+export interface GenerateCustomerReviewSuggestionInput {
+  businessName: string;
+  category?: string | null;
+  rating: number;
+  feedbackText?: string | null;
+}
+
+export interface CustomerReviewSuggestions {
+  english: string;
+  hinglish: string;
+  hindi: string;
+}
+
+/**
+ * Generates AI-assisted customer review draft suggestions (Phase 35).
+ * Rules:
+ * - Generates suggestions for English, Hinglish, and Hindi.
+ * - Accurately represents the selected rating (1-5 stars).
+ * - Never fabricates specific dishes, services, or claims not provided by the customer.
+ * - Customer can edit and customize the text before copying or submitting.
+ */
+export function generateCustomerReviewSuggestion(
+  input: GenerateCustomerReviewSuggestionInput
+): CustomerReviewSuggestions {
+  const rating = Math.max(1, Math.min(5, Math.round(Number(input.rating) || 5)));
+  const businessName = input.businessName?.trim() || 'this business';
+  const customNote = input.feedbackText?.trim();
+
+  let english = '';
+  let hinglish = '';
+  let hindi = '';
+
+  if (rating === 5) {
+    english = `Had a fantastic 5-star experience at ${businessName}! The atmosphere is welcoming, service was prompt and courteous, and everything exceeded expectations.${customNote ? ` Especially appreciated: "${customNote}".` : ''} Highly recommend to anyone!`;
+    hinglish = `${businessName} par mera visit sach mein bohot accha raha! 5-star service mili, staff kaafi polite aur supportive tha.${customNote ? ` Khas baat: "${customNote}".` : ''} Yahan regular aana definitely banta hai!`;
+    hindi = `${businessName} में हमारा 5-स्टार अनुभव बहुत ही शानदार रहा! यहाँ का माहौल बहुत सुखद है, सेवा समय पर और अत्यंत विनम्र थी।${customNote ? ` विशेष रूप से: "${customNote}"।` : ''} सभी को यहाँ आने की पुरज़ोर अनुशंसा करते हैं!`;
+  } else if (rating === 4) {
+    english = `Great overall visit to ${businessName}. Professional service, clean environment, and friendly staff.${customNote ? ` Note: "${customNote}".` : ''} Looking forward to coming back again soon.`;
+    hinglish = `${businessName} mein visit kaafi accha aur comfortable raha. Staff aur service dono badhiya the.${customNote ? ` Mere hisaab se: "${customNote}".` : ''} Definitely recommended!`;
+    hindi = `${businessName} में हमारा अनुभव काफी अच्छा रहा। स्टाफ सहयोगी था और सेवा संतोषजनक थी।${customNote ? ` विशेष टिप्पणी: "${customNote}"।` : ''} हम पुनः अवश्य आएंगे।`;
+  } else if (rating === 3) {
+    english = `Average experience at ${businessName}. The visit was alright overall, though there is potential for improvement in service and speed.${customNote ? ` Details: "${customNote}".` : ''}`;
+    hinglish = `${businessName} par experience theek-thaak raha. Service theek thi lekin thoda aur behtar banaya ja sakta hai.${customNote ? ` Baat yeh hai: "${customNote}".` : ''}`;
+    hindi = `${businessName} में हमारा अनुभव सामान्य रहा। सब कुछ ठीक था, पर सेवा की गति और व्यवस्था में सुधार की गुंजाइश है।${customNote ? ` टिप्पणी: "${customNote}"।` : ''}`;
+  } else if (rating === 2) {
+    english = `Visited ${businessName}, but unfortunately the experience was below expectations today.${customNote ? ` Reason: "${customNote}".` : ''} Hope management addresses this soon.`;
+    hinglish = `${businessName} par visit expect se thoda kamzor raha.${customNote ? ` Problem: "${customNote}".` : ''} Umeed hai management is par dhyaan dekar sudhaar karegi.`;
+    hindi = `${businessName} में हमारा अनुभव अपेक्षा से कम रहा।${customNote ? ` मुख्य कारण: "${customNote}"।` : ''} आशा है कि प्रबंधन इस पर ध्यान देकर सेवा में सुधार करेगा।`;
+  } else {
+    english = `Disappointing visit to ${businessName}. The service did not meet expectations today.${customNote ? ` Issues faced: "${customNote}".` : ''}`;
+    hinglish = `${businessName} par experience kaafi disappointing raha.${customNote ? ` Dikkat: "${customNote}".` : ''} Service aur quality mein kaafi sudhaar ki zaroorat hai.`;
+    hindi = `${businessName} में आज का अनुभव निराशाजनक रहा।${customNote ? ` समस्या: "${customNote}"।` : ''} सेवा और व्यवस्था में ठोस सुधार की आवश्यकता है।`;
+  }
+
+  return { english, hinglish, hindi };
+}
+

@@ -19,6 +19,8 @@ import {
 import {
   getCustomerLoyaltyState,
   getCustomerLoyaltyHistory,
+  claimCustomerQrEarning,
+  LoyaltyOperationError,
 } from '../services/loyaltyService';
 import {
   getCustomerRewards,
@@ -30,8 +32,10 @@ import { getCustomerEligibleOffers } from '../services/offerService';
 import {
   submitCustomerReview,
   getCustomerReviewState,
+  generateCustomerReviewSuggestion,
   ReviewOperationError,
 } from '../services/reviewService';
+import { prisma } from '../db/client';
 
 export const customerRouter = Router();
 
@@ -467,6 +471,84 @@ customerRouter.post('/reviews', requireCustomerAuth, async (req: CustomerRequest
   } catch (err: any) {
     const status = err instanceof ReviewOperationError ? err.statusCode : 400;
     res.status(status).json({ error: err.message || 'Failed to submit review' });
+  }
+});
+
+/**
+ * POST /api/customer/qr/claim-earning
+ * Automatically claims loyalty stamp or points when customer scans the store QR code.
+ * Replaces manual staff button presses with secure customer self-serve earning.
+ */
+customerRouter.post('/qr/claim-earning', requireCustomerAuth, async (req: CustomerRequest, res: Response) => {
+  try {
+    const { qrCode, idempotencyKey } = req.body;
+    if (!qrCode) {
+      res.status(400).json({ error: 'QR code is required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    const result = await claimCustomerQrEarning(req.customerContext!, {
+      qrCode,
+      idempotencyKey,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    if (err instanceof LoyaltyOperationError) {
+      const status =
+        err.code === 'INVALID_QR'
+          ? 404
+          : err.code === 'CROSS_TENANT_EARNING_FORBIDDEN'
+          ? 403
+          : 400;
+      res.status(status).json({ error: err.message, code: err.code });
+      return;
+    }
+    res.status(500).json({ error: err.message || 'Failed to claim loyalty earning', code: 'SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/customer/reviews/suggest
+ * Generates AI-assisted review suggestions in English, Hinglish, and Hindi
+ * based on selected star rating and business category.
+ */
+customerRouter.post('/reviews/suggest', requireCustomerAuth, async (req: CustomerRequest, res: Response) => {
+  try {
+    const { rating, feedbackText } = req.body;
+    const business = await prisma.business.findUnique({
+      where: { id: req.customerContext!.businessId },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        googleReviewUrl: true,
+        instagramUrl: true,
+        facebookUrl: true,
+      },
+    });
+
+    if (!business) {
+      res.status(404).json({ error: 'Business not found' });
+      return;
+    }
+
+    const suggestions = generateCustomerReviewSuggestion({
+      businessName: business.name,
+      category: business.category,
+      rating: Number(rating) || 5,
+      feedbackText,
+    });
+
+    res.json({
+      suggestions,
+      googleReviewUrl: business.googleReviewUrl,
+      instagramUrl: business.instagramUrl,
+      facebookUrl: business.facebookUrl,
+      businessName: business.name,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to generate review suggestions' });
   }
 });
 

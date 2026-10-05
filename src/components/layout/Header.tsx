@@ -30,7 +30,7 @@ const ROUTE_TITLES: Record<AdminRoute, { title: string; breadcrumb: string }> = 
   'settings-business': { title: 'Business Profile', breadcrumb: 'Settings' },
   'settings-branches': { title: 'Branch Management', breadcrumb: 'Settings' },
   'settings-staff': { title: 'Staff Management', breadcrumb: 'Settings' },
-  'settings-branding': { title: 'Branding & Theme', breadcrumb: 'Settings' },
+  'settings-branding': { title: 'Branding & Logo', breadcrumb: 'Settings' },
   'settings-messaging': { title: 'Messaging & Providers', breadcrumb: 'Settings' },
   billing: { title: 'Billing & Subscriptions', breadcrumb: 'Settings' },
   'design-system': { title: 'Design System & Component Library', breadcrumb: 'Source of Truth' },

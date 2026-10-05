@@ -920,6 +920,9 @@ export async function getCustomerLoyaltyState(customerCtx: CustomerSessionContex
         secondaryColor: true,
         logo: true,
         currency: true,
+        googleReviewUrl: true,
+        instagramUrl: true,
+        facebookUrl: true,
       },
     }),
     prisma.customer.findUnique({
@@ -1135,5 +1138,283 @@ export async function redeemReward(ctx: TenantContext, redemptionCode: string) {
     });
 
     return updated;
+  });
+}
+
+// ============================================================================
+// 6. AUTOMATIC CUSTOMER QR LOYALTY EARNING (PHASE 35)
+// ============================================================================
+
+export interface ClaimCustomerQrEarningInput {
+  qrCode: string;
+  idempotencyKey?: string;
+}
+
+export interface ClaimCustomerQrEarningResult {
+  success: boolean;
+  alreadyClaimed?: boolean;
+  hasActiveProgram?: boolean;
+  earnedType?: 'STAMP' | 'POINTS';
+  deltaStamps: number;
+  deltaPoints: number;
+  newStamps?: number;
+  targetStamps?: number;
+  newPoints?: number;
+  isComplete?: boolean;
+  message: string;
+  businessName?: string;
+  businessLogo?: string | null;
+  card?: any;
+}
+
+/**
+ * Claims automatic loyalty earning from a scanned QR code.
+ * Replaces manual staff button presses with customer self-serve earning.
+ * Security & Anti-Abuse:
+ * 1. Resolves QR code server-side; ensures QR is ACTIVE.
+ * 2. Enforces customer belongs to the QR's business tenant (no cross-tenant earning).
+ * 3. Enforces idempotency via businessId_idempotencyKey unique index.
+ * 4. Enforces a 15-minute visit cooldown to prevent replay spamming.
+ */
+export async function claimCustomerQrEarning(
+  customerCtx: CustomerSessionContext,
+  input: ClaimCustomerQrEarningInput
+): Promise<ClaimCustomerQrEarningResult> {
+  const cleanCode = input.qrCode?.trim();
+  if (!cleanCode) {
+    throw new LoyaltyOperationError('QR code token is required', 'VALIDATION_ERROR');
+  }
+
+  // 1. Resolve QR code securely from server database
+  const qrRecord = await prisma.qRCode.findUnique({
+    where: { code: cleanCode },
+    include: {
+      business: {
+        select: {
+          id: true,
+          name: true,
+          logo: true,
+          status: true,
+        },
+      },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!qrRecord || qrRecord.status !== 'ACTIVE' || qrRecord.business.status !== 'ACTIVE') {
+    throw new LoyaltyOperationError('This QR code is invalid, inactive, or expired', 'INVALID_QR');
+  }
+
+  // 2. Strict tenant isolation: verify that authenticated customer belongs to this business
+  if (qrRecord.businessId !== customerCtx.businessId) {
+    throw new LoyaltyOperationError(
+      'Security error: You cannot claim loyalty rewards across different business tenants',
+      'CROSS_TENANT_EARNING_FORBIDDEN'
+    );
+  }
+
+  const businessId = customerCtx.businessId;
+  const customerId = customerCtx.customerId;
+  const branchId = qrRecord.branchId || null;
+
+  // 3. Idempotency Key check: if provided, check if transaction already exists
+  if (input.idempotencyKey) {
+    const existingTx = await prisma.loyaltyTransaction.findUnique({
+      where: {
+        businessId_idempotencyKey: {
+          businessId,
+          idempotencyKey: input.idempotencyKey.trim(),
+        },
+      },
+      include: { card: true },
+    });
+
+    if (existingTx) {
+      return {
+        success: true,
+        alreadyClaimed: true,
+        earnedType: existingTx.type === 'STAMP_ADDED' ? 'STAMP' : 'POINTS',
+        deltaStamps: existingTx.deltaStamps,
+        deltaPoints: existingTx.deltaPoints,
+        newStamps: existingTx.card?.stampsCollected,
+        targetStamps: existingTx.card?.totalStampsNeeded,
+        newPoints: existingTx.card?.pointsBalance,
+        isComplete: existingTx.card?.status === 'COMPLETED',
+        message: 'Reward for this scan was already credited to your pass!',
+        businessName: qrRecord.business.name,
+        businessLogo: qrRecord.business.logo,
+        card: existingTx.card,
+      };
+    }
+  }
+
+  // 4. Anti-replay cooldown check: check if customer already earned in the last 15 minutes
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+  const recentTransaction = await prisma.loyaltyTransaction.findFirst({
+    where: {
+      businessId,
+      customerId,
+      createdAt: { gte: fifteenMinutesAgo },
+      type: { in: ['STAMP_ADDED', 'POINTS_EARNED'] },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { card: true },
+  });
+
+  if (recentTransaction) {
+    return {
+      success: true,
+      alreadyClaimed: true,
+      earnedType: recentTransaction.type === 'STAMP_ADDED' ? 'STAMP' : 'POINTS',
+      deltaStamps: 0,
+      deltaPoints: 0,
+      newStamps: recentTransaction.card?.stampsCollected,
+      targetStamps: recentTransaction.card?.totalStampsNeeded,
+      newPoints: recentTransaction.card?.pointsBalance,
+      isComplete: recentTransaction.card?.status === 'COMPLETED',
+      message: 'You have already collected loyalty rewards for this visit. See you next time!',
+      businessName: qrRecord.business.name,
+      businessLogo: qrRecord.business.logo,
+      card: recentTransaction.card,
+    };
+  }
+
+  // 5. Retrieve active loyalty program for this business
+  const program = await prisma.loyaltyProgram.findFirst({
+    where: {
+      businessId,
+      status: 'ACTIVE',
+    },
+  });
+
+  if (!program) {
+    return {
+      success: false,
+      hasActiveProgram: false,
+      deltaStamps: 0,
+      deltaPoints: 0,
+      message: 'This business does not currently have an active loyalty program.',
+      businessName: qrRecord.business.name,
+      businessLogo: qrRecord.business.logo,
+    };
+  }
+
+  // 6. Award stamps or points atomically inside transaction
+  return prisma.$transaction(async (tx) => {
+    const targetStamps = program.targetStamps || 10;
+
+    // Atomically ensure loyalty card exists for customer
+    await tx.$executeRaw`
+      INSERT INTO loyalty_cards (id, "businessId", "customerId", "programId", "totalStampsNeeded", "stampsCollected", "pointsBalance", status, "issuedAt", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid()::text, ${businessId}, ${customerId}, ${program.id}, ${targetStamps}, 0, 0, 'ACTIVE'::"CardStatus", NOW(), NOW(), NOW())
+      ON CONFLICT ("customerId", "programId") DO NOTHING
+    `;
+
+    const card = await tx.loyaltyCard.findUniqueOrThrow({
+      where: {
+        customerId_programId: {
+          customerId,
+          programId: program.id,
+        },
+      },
+    });
+
+    const isStamp = program.type === 'STAMP';
+    const deltaStamps = isStamp ? 1 : 0;
+    const deltaPoints = isStamp ? 0 : 50; // 50 bonus points per confirmed QR visit
+
+    // Update card balances
+    const updatedCard = await tx.loyaltyCard.update({
+      where: { id: card.id },
+      data: {
+        stampsCollected: isStamp ? { increment: deltaStamps } : undefined,
+        pointsBalance: !isStamp ? { increment: deltaPoints } : undefined,
+      },
+    });
+
+    const isComplete = isStamp && updatedCard.stampsCollected >= updatedCard.totalStampsNeeded;
+    if (isComplete && updatedCard.status !== 'COMPLETED') {
+      await tx.loyaltyCard.update({
+        where: { id: card.id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    // Update customer balances & visit metrics
+    await tx.customer.update({
+      where: { id: customerId },
+      data: {
+        stampsBalance: isStamp ? { increment: deltaStamps } : undefined,
+        pointsBalance: !isStamp ? { increment: deltaPoints } : undefined,
+        totalVisits: { increment: 1 },
+        lastVisitAt: new Date(),
+        status: 'ACTIVE',
+      },
+    });
+
+    // Record immutable loyalty transaction
+    await tx.loyaltyTransaction.create({
+      data: {
+        businessId,
+        branchId,
+        customerId,
+        cardId: card.id,
+        type: isStamp ? 'STAMP_ADDED' : 'POINTS_EARNED',
+        deltaStamps,
+        deltaPoints,
+        idempotencyKey: input.idempotencyKey?.trim() || null,
+        metadata: {
+          qrCode: qrRecord.code,
+          source: 'CUSTOMER_QR_AUTO_EARN',
+          programId: program.id,
+          previousStamps: card.stampsCollected,
+          newStamps: updatedCard.stampsCollected,
+          previousPoints: card.pointsBalance,
+          newPoints: updatedCard.pointsBalance,
+        },
+      },
+    });
+
+    // Record customer event
+    await tx.customerEvent.create({
+      data: {
+        businessId,
+        customerId,
+        type: isStamp ? 'STAMP_ADDED' : 'POINTS_ADDED',
+        metadata: {
+          deltaStamps,
+          deltaPoints,
+          isComplete,
+          qrCode: qrRecord.code,
+          source: 'QR_AUTO_EARN',
+        },
+      },
+    });
+
+    return {
+      success: true,
+      alreadyClaimed: false,
+      hasActiveProgram: true,
+      earnedType: isStamp ? 'STAMP' : 'POINTS',
+      deltaStamps,
+      deltaPoints,
+      newStamps: updatedCard.stampsCollected,
+      targetStamps: updatedCard.totalStampsNeeded,
+      newPoints: updatedCard.pointsBalance,
+      isComplete,
+      message: isStamp ? '+1 Stamp Collected!' : `+${deltaPoints} Points Earned!`,
+      businessName: qrRecord.business.name,
+      businessLogo: qrRecord.business.logo,
+      card: updatedCard,
+    };
   });
 }
