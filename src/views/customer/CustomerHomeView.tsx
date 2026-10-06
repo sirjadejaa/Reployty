@@ -3,7 +3,6 @@ import { useCustomerAuth } from '../../context/CustomerAuthContext';
 import { Award, Clock, QrCode, Sparkles, UserCheck, UtensilsCrossed, Tag } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CustomerPwaTab } from '../../components/customer/CustomerPwaShell';
-import { CustomerReviewPromptCard } from '../../components/customer/CustomerReviewPromptCard';
 
 interface CustomerHomeViewProps {
   onNavigateTab: (tab: CustomerPwaTab) => void;
@@ -348,8 +347,6 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({ onNavigateTa
         </Button>
       </div>
 
-      {/* Customer Review & Reputation Flow (Phase 13) */}
-      <CustomerReviewPromptCard />
 
       {/* Quick Navigation Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
