@@ -172,21 +172,21 @@ export const CustomerCatalogView: React.FC<CustomerCatalogViewProps> = () => {
   }, [allItems, selectedSection, selectedCategory, searchQuery]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Catalog Header Banner */}
       <div
         style={{
-          padding: '18px 20px',
-          borderRadius: '16px',
+          padding: '12px 14px',
+          borderRadius: '14px',
           background: `linear-gradient(135deg, ${primaryColor}15 0%, #FFFFFF 100%)`,
           border: `1px solid ${primaryColor}25`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <Sparkles size={16} color={primaryColor} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <Sparkles size={14} color={primaryColor} />
           <span
             style={{
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
@@ -196,10 +196,10 @@ export const CustomerCatalogView: React.FC<CustomerCatalogViewProps> = () => {
             Digital Catalog
           </span>
         </div>
-        <h1 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0', color: '#0F172A' }}>
+        <h1 style={{ fontSize: '17px', fontWeight: 800, margin: '0 0 2px 0', color: '#0F172A' }}>
           {business?.name ? `${business.name} Offerings` : 'Offerings & Menu'}
         </h1>
-        <p style={{ margin: 0, fontSize: '13px', color: '#64748B', lineHeight: 1.4 }}>
+        <p style={{ margin: 0, fontSize: '12px', color: '#64748B', lineHeight: 1.35 }}>
           Browse fresh items, signature services, and products available at this location.
         </p>
       </div>

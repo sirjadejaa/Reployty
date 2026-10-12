@@ -129,6 +129,8 @@ export interface CustomerLoyaltyState {
   message?: string;
   previewStamps?: number;
   previewPoints?: number;
+  isEnrolled?: boolean;
+  requiresEnrollment?: boolean;
 }
 
 export interface CustomerClaimedRedemption {

@@ -10,6 +10,8 @@ import {
   QrCode,
   ChevronLeft,
   ChevronRight,
+  MessageSquare,
+  HelpCircle,
 } from 'lucide-react';
 import { AdminRoute } from '../../types/admin';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
@@ -26,9 +28,19 @@ export interface AdminApplicationsViewProps {
   onNavigate: (route: AdminRoute, params?: { id?: string }) => void;
 }
 
+export interface StatusHistoryEntry {
+  status: string;
+  timestamp: string;
+  actorRole?: 'APPLICANT' | 'SUPER_ADMIN' | 'SYSTEM' | string;
+  actorName?: string | null;
+  actionTitle: string;
+  notes?: string | null;
+  message?: string | null;
+}
 
 export interface OnboardingApplication {
   id: string;
+  applicationNumber: string;
   businessName: string;
   category: string;
   description: string | null;
@@ -45,6 +57,11 @@ export interface OnboardingApplication {
   numberOfBranches: number;
   themePreset: string | null;
   status: OnboardingRequestStatus;
+  submittedAt: string | null;
+  additionalInfoRequested: string | null;
+  additionalInfoSubmitted: string | null;
+  additionalInfoSubmittedAt: string | null;
+  statusHistory?: StatusHistoryEntry[] | null;
   reviewNotes: string | null;
   reviewedAt: string | null;
   provisionedAt: string | null;
@@ -66,17 +83,25 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
   const [applications, setApplications] = useState<OnboardingApplication[]>([]);
   const [counts, setCounts] = useState<{
     ALL: number;
+    DRAFT: number;
+    SUBMITTED: number;
     PENDING: number;
     UNDER_REVIEW: number;
+    ADDITIONAL_INFO_REQUIRED: number;
     APPROVED: number;
     REJECTED: number;
+    CANCELLED: number;
     PROVISIONED: number;
   }>({
     ALL: 0,
+    DRAFT: 0,
+    SUBMITTED: 0,
     PENDING: 0,
     UNDER_REVIEW: 0,
+    ADDITIONAL_INFO_REQUIRED: 0,
     APPROVED: 0,
     REJECTED: 0,
+    CANCELLED: 0,
     PROVISIONED: 0,
   });
 
@@ -95,6 +120,12 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [reviewNotes, setReviewNotes] = useState<string>('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
+  const [copiedAppNumber, setCopiedAppNumber] = useState<boolean>(false);
+
+  // Request Info Modal State
+  const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState<boolean>(false);
+  const [requestInfoMessage, setRequestInfoMessage] = useState<string>('');
+  const [isSubmittingInfoRequest, setIsSubmittingInfoRequest] = useState<boolean>(false);
 
   // Provisioning Modal State
   const [isProvisionConfirmOpen, setIsProvisionConfirmOpen] = useState<boolean>(false);
@@ -131,10 +162,14 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
       setApplications(json.items || []);
       setCounts(json.counts || {
         ALL: 0,
+        DRAFT: 0,
+        SUBMITTED: 0,
         PENDING: 0,
         UNDER_REVIEW: 0,
+        ADDITIONAL_INFO_REQUIRED: 0,
         APPROVED: 0,
         REJECTED: 0,
+        CANCELLED: 0,
         PROVISIONED: 0,
       });
       setTotalPages(json.pagination?.totalPages || 1);
@@ -160,6 +195,19 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
     setSelectedApp(app);
     setReviewNotes(app.reviewNotes || '');
     setIsDetailModalOpen(true);
+  };
+
+  const handleCopyAppNumber = (appNum: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(appNum);
+      setCopiedAppNumber(true);
+      setTimeout(() => setCopiedAppNumber(false), 2000);
+      addToast({
+        type: 'info',
+        title: 'Copied Reference',
+        message: `${appNum} copied to clipboard.`,
+      });
+    }
   };
 
   const handleUpdateStatus = async (nextStatus: OnboardingRequestStatus) => {
@@ -201,6 +249,49 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
       });
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleRequestInfo = async () => {
+    if (!selectedApp || !requestInfoMessage.trim()) return;
+
+    try {
+      setIsSubmittingInfoRequest(true);
+      const res = await fetch(`/api/admin/onboarding-requests/${selectedApp.id}/request-info`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          message: requestInfoMessage.trim(),
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to request additional information');
+      }
+
+      addToast({
+        type: 'success',
+        title: 'Information Requested',
+        message: `Applicant has been notified. Application status updated to Additional Information Required.`,
+      });
+
+      setIsRequestInfoModalOpen(false);
+      setRequestInfoMessage('');
+      setSelectedApp(json.request);
+      await fetchApplications();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Request Failed',
+        message: err.message,
+      });
+    } finally {
+      setIsSubmittingInfoRequest(false);
     }
   };
 
@@ -260,7 +351,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
     }
   };
 
-  const getBadgeConfig = (status: OnboardingRequestStatus): { status: string; label: string } => {
+  const getBadgeConfig = (status: OnboardingRequestStatus | string): { status: string; label: string } => {
     switch (status) {
       case 'PROVISIONED':
         return { status: 'completed', label: 'Provisioned' };
@@ -268,6 +359,14 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
         return { status: 'active', label: 'Approved' };
       case 'UNDER_REVIEW':
         return { status: 'pending', label: 'Under Review' };
+      case 'ADDITIONAL_INFO_REQUIRED':
+        return { status: 'at-risk', label: 'Info Required' };
+      case 'SUBMITTED':
+        return { status: 'pending', label: 'Submitted' };
+      case 'DRAFT':
+        return { status: 'inactive', label: 'Draft' };
+      case 'CANCELLED':
+        return { status: 'inactive', label: 'Cancelled' };
       case 'REJECTED':
         return { status: 'failed', label: 'Rejected' };
       case 'PENDING':
@@ -281,7 +380,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
       {/* Header */}
       <AdminPageHeader
         title="Business Applications"
-        description="Review public client onboarding submissions, approve accounts, and provision production business workspaces."
+        description="Review prospective business onboarding requests, manage application lifecycle, and provision active tenant workspaces."
         actions={
           <Button
             variant="outline"
@@ -293,7 +392,6 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
           </Button>
         }
       />
-
 
       {/* Status Filter Tabs */}
       <div
@@ -307,11 +405,14 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
       >
         {[
           { id: 'ALL', label: 'All', count: counts.ALL },
-          { id: 'PENDING', label: 'Pending', count: counts.PENDING },
+          { id: 'SUBMITTED', label: 'Submitted', count: counts.SUBMITTED },
           { id: 'UNDER_REVIEW', label: 'Under Review', count: counts.UNDER_REVIEW },
+          { id: 'ADDITIONAL_INFO_REQUIRED', label: 'Info Required', count: counts.ADDITIONAL_INFO_REQUIRED },
           { id: 'APPROVED', label: 'Approved', count: counts.APPROVED },
           { id: 'PROVISIONED', label: 'Provisioned', count: counts.PROVISIONED },
           { id: 'REJECTED', label: 'Rejected', count: counts.REJECTED },
+          { id: 'CANCELLED', label: 'Cancelled', count: counts.CANCELLED },
+          { id: 'DRAFT', label: 'Drafts', count: counts.DRAFT },
         ].map(tab => {
           const isActive = statusFilter === tab.id;
           return (
@@ -357,7 +458,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
 
       {/* Search Bar */}
       <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 'var(--space-3)' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 420 }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
           <Search
             size={16}
             style={{
@@ -370,7 +471,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
           />
           <input
             type="text"
-            placeholder="Search by business name, owner, email, or city..."
+            placeholder="Search by APP-XXXXX reference, business, owner, or email..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -402,11 +503,10 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
       ) : error ? (
         <div
           style={{
-            padding: 'var(--space-6)',
+            padding: 'var(--space-4)',
             backgroundColor: 'var(--color-danger-subtle)',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--color-danger-border)',
             color: 'var(--color-danger-text)',
+            borderRadius: 'var(--radius-md)',
             textAlign: 'center',
           }}
         >
@@ -439,6 +539,21 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span
+                      style={{
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        fontSize: 11,
+                        padding: '2px 6px',
+                        backgroundColor: '#EEF2FF',
+                        color: 'var(--color-primary)',
+                        borderRadius: 4,
+                      }}
+                    >
+                      {app.applicationNumber || 'PENDING'}
+                    </span>
+                  </div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text-primary)' }}>
                     {app.businessName}
                   </div>
@@ -449,10 +564,23 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                 <StatusBadge {...getBadgeConfig(app.status)} />
               </div>
 
-
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
                 <strong>Owner:</strong> {app.ownerName} ({app.ownerEmail})
               </div>
+
+              {app.additionalInfoRequested && !app.additionalInfoSubmitted && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: '#B45309',
+                    backgroundColor: '#FEF3C7',
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                  }}
+                >
+                  Waiting for applicant info
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
@@ -478,7 +606,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Business</th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Application / Business</th>
                 <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Category</th>
                 <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Owner Contact</th>
                 <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>Location</th>
@@ -497,6 +625,21 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                   }}
                 >
                   <td style={{ padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span
+                        style={{
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          fontSize: 11,
+                          padding: '2px 6px',
+                          backgroundColor: '#EEF2FF',
+                          color: 'var(--color-primary)',
+                          borderRadius: 4,
+                        }}
+                      >
+                        {app.applicationNumber || 'PENDING'}
+                      </span>
+                    </div>
                     <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}>
                       {app.businessName}
                     </div>
@@ -525,6 +668,11 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                   </td>
                   <td style={{ padding: '14px 16px' }}>
                     <StatusBadge {...getBadgeConfig(app.status)} />
+                    {app.additionalInfoRequested && !app.additionalInfoSubmitted && (
+                      <div style={{ fontSize: 10, color: '#B45309', marginTop: 4, fontWeight: 500 }}>
+                        Awaiting info
+                      </div>
+                    )}
                   </td>
 
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
@@ -589,7 +737,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
           onClose={() => setIsDetailModalOpen(false)}
           title={`Application Review: ${selectedApp.businessName}`}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxHeight: '75vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxHeight: '78vh', overflowY: 'auto', paddingRight: 4 }}>
             {/* Status Header */}
             <div
               style={{
@@ -599,21 +747,93 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                 padding: 'var(--space-3) var(--space-4)',
                 backgroundColor: 'var(--color-bg)',
                 borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                flexWrap: 'wrap',
+                gap: 'var(--space-2)',
               }}
             >
               <div>
-                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  Current Status
-                </span>
-                <div style={{ marginTop: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      padding: '2px 8px',
+                      backgroundColor: '#EEF2FF',
+                      color: 'var(--color-primary)',
+                      borderRadius: 4,
+                      border: '1px solid #C7D2FE',
+                    }}
+                  >
+                    #{selectedApp.applicationNumber || 'PENDING'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAppNumber(selectedApp.applicationNumber)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-text-muted)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                    title="Copy reference number"
+                  >
+                    {copiedAppNumber ? <Check size={14} color="#059669" /> : <Copy size={14} />}
+                  </button>
                   <StatusBadge {...getBadgeConfig(selectedApp.status)} />
                 </div>
-
               </div>
               <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--color-text-muted)' }}>
                 Submitted: {new Date(selectedApp.createdAt).toLocaleString()}
               </div>
             </div>
+
+            {/* Additional Information Notices */}
+            {selectedApp.additionalInfoRequested && (
+              <div
+                style={{
+                  backgroundColor: '#FFFBEB',
+                  border: '1px solid #FDE68A',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: '#B45309', marginBottom: 4 }}>
+                  <HelpCircle size={15} /> Super Admin Requested Information
+                </div>
+                <div style={{ color: '#78350F', lineHeight: 1.5 }}>
+                  {selectedApp.additionalInfoRequested}
+                </div>
+              </div>
+            )}
+
+            {selectedApp.additionalInfoSubmitted && (
+              <div
+                style={{
+                  backgroundColor: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: '#15803D', marginBottom: 4 }}>
+                  <CheckCircle2 size={15} /> Applicant Response Submitted
+                  {selectedApp.additionalInfoSubmittedAt && (
+                    <span style={{ fontSize: 11, fontWeight: 400, color: '#166534' }}>
+                      ({new Date(selectedApp.additionalInfoSubmittedAt).toLocaleString()})
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: '#14532D', lineHeight: 1.5 }}>
+                  {selectedApp.additionalInfoSubmitted}
+                </div>
+              </div>
+            )}
 
             {/* Business Info Grid */}
             <div
@@ -711,16 +931,96 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
               </div>
             </div>
 
+            {/* Persisted Status History Timeline */}
+            <div
+              style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                backgroundColor: 'var(--color-bg)',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+                Persisted Application History
+              </div>
+
+              {selectedApp.statusHistory && selectedApp.statusHistory.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {selectedApp.statusHistory.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        position: 'relative',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor:
+                            item.status === 'APPROVED' || item.status === 'PROVISIONED'
+                              ? '#059669'
+                              : item.status === 'REJECTED'
+                              ? '#DC2626'
+                              : item.status === 'ADDITIONAL_INFO_REQUIRED'
+                              ? '#D97706'
+                              : 'var(--color-primary)',
+                          marginTop: 5,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                            {item.actionTitle}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                            {new Date(item.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>
+                          Actor: {item.actorRole || 'SYSTEM'} {item.actorName ? `(${item.actorName})` : ''}
+                        </div>
+                        {(item.notes || item.message) && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: 'var(--color-text-secondary)',
+                              marginTop: 4,
+                              padding: '4px 8px',
+                              backgroundColor: '#FFFFFF',
+                              borderRadius: 4,
+                              border: '1px solid var(--color-border)',
+                            }}
+                          >
+                            {item.message || item.notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                  No historical entries recorded.
+                </div>
+              )}
+            </div>
+
             {/* Review Notes Input */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                Review Notes / Internal Decision Record
+                Review Notes / Explanation for Action
               </label>
               <textarea
                 rows={2}
                 value={reviewNotes}
                 onChange={e => setReviewNotes(e.target.value)}
-                placeholder="Add comments on identity verification or provisioning conditions..."
+                placeholder="Add explanation note for approval, rejection, or under review change..."
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -745,8 +1045,8 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                 gap: 'var(--space-2)',
               }}
             >
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                {selectedApp.status !== 'REJECTED' && selectedApp.status !== 'PROVISIONED' && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                {selectedApp.status !== 'REJECTED' && selectedApp.status !== 'PROVISIONED' && selectedApp.status !== 'CANCELLED' && (
                   <Button
                     variant="danger"
                     size="sm"
@@ -756,7 +1056,19 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                     Reject
                   </Button>
                 )}
-                {selectedApp.status === 'PENDING' && (
+
+                {selectedApp.status !== 'PROVISIONED' && selectedApp.status !== 'CANCELLED' && selectedApp.status !== 'REJECTED' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsRequestInfoModalOpen(true)}
+                    leftIcon={<MessageSquare size={13} />}
+                  >
+                    Request Info
+                  </Button>
+                )}
+
+                {(selectedApp.status === 'PENDING' || selectedApp.status === 'SUBMITTED' || selectedApp.status === 'ADDITIONAL_INFO_REQUIRED') && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -766,7 +1078,8 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                     Mark Under Review
                   </Button>
                 )}
-                {selectedApp.status !== 'APPROVED' && selectedApp.status !== 'PROVISIONED' && (
+
+                {selectedApp.status !== 'APPROVED' && selectedApp.status !== 'PROVISIONED' && selectedApp.status !== 'CANCELLED' && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -803,7 +1116,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                     }}
                     leftIcon={<Sparkles size={14} />}
                   >
-                    Provision Business
+                    Provision Workspace
                   </Button>
                 )}
               </div>
@@ -812,7 +1125,61 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
         </Modal>
       )}
 
-      {/* PROVISIONING CONFIRMATION & RESULT MODAL (Section 37 UX compliant) */}
+      {/* REQUEST ADDITIONAL INFORMATION MODAL */}
+      <Modal
+        isOpen={isRequestInfoModalOpen}
+        onClose={() => setIsRequestInfoModalOpen(false)}
+        title="Request Additional Information"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            Specify what additional details, documents, or corrections are required from the applicant for <strong>{selectedApp?.businessName}</strong>. The applicant will see this notice directly on their tracking screen.
+          </p>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              Required Information or Action Notice
+            </label>
+            <textarea
+              rows={4}
+              value={requestInfoMessage}
+              onChange={e => setRequestInfoMessage(e.target.value)}
+              placeholder="e.g. Please provide your business registration tax document or specify your primary menu offerings..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                fontSize: 13,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsRequestInfoModalOpen(false)}
+              disabled={isSubmittingInfoRequest}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              loading={isSubmittingInfoRequest}
+              disabled={!requestInfoMessage.trim()}
+              onClick={handleRequestInfo}
+              leftIcon={<MessageSquare size={14} />}
+            >
+              Send Information Request
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* PROVISIONING CONFIRMATION & RESULT MODAL */}
       <Modal
         isOpen={isProvisionConfirmOpen}
         onClose={() => {
@@ -907,7 +1274,6 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
               <StatusBadge status="active" label="Active" />
             </div>
 
-
             {/* Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
               <Button
@@ -960,7 +1326,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                 <CheckCircle2 size={16} /> Primary branch configuration
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#059669' }}>
-                <CheckCircle2 size={16} /> Phase 6 Customer Standee QR code
+                <CheckCircle2 size={16} /> Customer Standee QR code
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#059669' }}>
                 <CheckCircle2 size={16} /> Secure one-time password setup invitation
@@ -986,7 +1352,7 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
                 onClick={handleExecuteProvision}
                 rightIcon={<Sparkles size={16} />}
               >
-                Provision Business
+                Provision Workspace
               </Button>
             </div>
           </div>
@@ -995,3 +1361,5 @@ export const AdminApplicationsView: React.FC<AdminApplicationsViewProps> = ({ on
     </div>
   );
 };
+
+export default AdminApplicationsView;

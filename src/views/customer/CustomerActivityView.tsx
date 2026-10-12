@@ -63,21 +63,51 @@ export const CustomerActivityView: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>
-            Activity Log
-          </h1>
-          <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
-            Your visit and membership timeline.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Creative Mini Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '14px',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '10px',
+              backgroundColor: '#EFF6FF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#2563EB',
+              flexShrink: 0,
+            }}
+          >
+            <Clock size={16} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
+              Activity Log
+            </h1>
+            <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0' }}>
+              Your visit & membership timeline
+            </p>
+          </div>
         </div>
+
         <button
           onClick={loadActivity}
           disabled={loading}
           style={{
-            background: 'none',
+            background: '#F8FAFC',
             border: '1px solid #E2E8F0',
             borderRadius: '8px',
             padding: '6px 10px',
@@ -85,12 +115,13 @@ export const CustomerActivityView: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            fontSize: '12px',
-            color: '#64748B',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#475569',
           }}
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh</span>
         </button>
       </div>
 

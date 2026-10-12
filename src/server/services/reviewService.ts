@@ -610,57 +610,203 @@ export async function updateReviewGeneration(
 export interface GenerateCustomerReviewSuggestionInput {
   businessName: string;
   category?: string | null;
+  description?: string | null;
   rating: number;
   feedbackText?: string | null;
+  language?: 'ENGLISH' | 'HINGLISH' | 'HINDI' | string;
 }
 
 export interface CustomerReviewSuggestions {
   english: string;
   hinglish: string;
   hindi: string;
+  options: string[];
+  allOptions: {
+    english: string[];
+    hinglish: string[];
+    hindi: string[];
+  };
+}
+
+function getCategoryNoun(category?: string | null): string {
+  if (!category) return 'business';
+  const c = category.toUpperCase().trim();
+  switch (c) {
+    case 'CAFE':
+      return 'cafe';
+    case 'RESTAURANT':
+      return 'restaurant';
+    case 'BAKERY':
+      return 'bakery';
+    case 'SALON':
+      return 'salon';
+    case 'BEAUTY':
+      return 'beauty studio';
+    case 'SPA':
+      return 'spa';
+    case 'GYM':
+      return 'gym';
+    case 'GAMEZONE':
+      return 'game zone';
+    case 'RETAIL':
+      return 'store';
+    default:
+      return 'spot';
+  }
+}
+
+function getCategoryNounHindi(category?: string | null): string {
+  if (!category) return 'स्थान';
+  const c = category.toUpperCase().trim();
+  switch (c) {
+    case 'CAFE':
+      return 'कैफे';
+    case 'RESTAURANT':
+      return 'रेस्टोरेंट';
+    case 'BAKERY':
+      return 'बेकरी';
+    case 'SALON':
+      return 'सैलून';
+    case 'BEAUTY':
+      return 'ब्यूटी स्टूडियो';
+    case 'SPA':
+      return 'स्पा';
+    case 'GYM':
+      return 'जिम';
+    case 'GAMEZONE':
+      return 'गेमिंग ज़ोन';
+    case 'RETAIL':
+      return 'स्टोर';
+    default:
+      return 'स्थान';
+  }
 }
 
 /**
  * Generates AI-assisted customer review draft suggestions (Phase 35).
  * Rules:
- * - Generates suggestions for English, Hinglish, and Hindi.
+ * - Generates 3-5 distinct suggestions for English, Hinglish, and Hindi.
  * - Accurately represents the selected rating (1-5 stars).
- * - Never fabricates specific dishes, services, or claims not provided by the customer.
+ * - Incorporates dynamic business name, category, and description context.
+ * - Never fabricates specific dishes, services, treatments, or purchases not provided by the customer.
  * - Customer can edit and customize the text before copying or submitting.
+ * - Never hardcodes Cafe or Salon identifiers into the generation logic.
  */
 export function generateCustomerReviewSuggestion(
   input: GenerateCustomerReviewSuggestionInput
 ): CustomerReviewSuggestions {
   const rating = Math.max(1, Math.min(5, Math.round(Number(input.rating) || 5)));
   const businessName = input.businessName?.trim() || 'this business';
+  const catNoun = getCategoryNoun(input.category);
+  const catNounHindi = getCategoryNounHindi(input.category);
   const customNote = input.feedbackText?.trim();
+  const rawDesc = input.description?.trim();
+  const cleanDesc = rawDesc && rawDesc.length > 0 && rawDesc.length < 80 ? rawDesc : null;
+  const descSnippet = cleanDesc ? ` Their focus on ${cleanDesc.toLowerCase()} is evident throughout.` : '';
+  const descHinglish = cleanDesc ? ` Inka focus on ${cleanDesc.toLowerCase()} clearly dikhta hai.` : '';
+  const selectedLang = String(input.language || 'ENGLISH').toUpperCase();
 
-  let english = '';
-  let hinglish = '';
-  let hindi = '';
+  const allOptions: { english: string[]; hinglish: string[]; hindi: string[] } = {
+    english: [],
+    hinglish: [],
+    hindi: [],
+  };
 
   if (rating === 5) {
-    english = `Had a fantastic 5-star experience at ${businessName}! The atmosphere is welcoming, service was prompt and courteous, and everything exceeded expectations.${customNote ? ` Especially appreciated: "${customNote}".` : ''} Highly recommend to anyone!`;
-    hinglish = `${businessName} par mera visit sach mein bohot accha raha! 5-star service mili, staff kaafi polite aur supportive tha.${customNote ? ` Khas baat: "${customNote}".` : ''} Yahan regular aana definitely banta hai!`;
-    hindi = `${businessName} में हमारा 5-स्टार अनुभव बहुत ही शानदार रहा! यहाँ का माहौल बहुत सुखद है, सेवा समय पर और अत्यंत विनम्र थी।${customNote ? ` विशेष रूप से: "${customNote}"।` : ''} सभी को यहाँ आने की पुरज़ोर अनुशंसा करते हैं!`;
+    allOptions.english = [
+      `Had a fantastic 5-star experience at ${businessName}! The atmosphere is welcoming, service was prompt and courteous, and everything at this ${catNoun} exceeded expectations.${customNote ? ` Especially appreciated: "${customNote}".` : ''} Highly recommend to anyone!`,
+      `Outstanding visit to ${businessName}! The staff was extraordinarily polite, the quality was top-notch, and the attention to detail was noticeable throughout.${descSnippet}${customNote ? ` Personal highlight: "${customNote}".` : ''} Will definitely be coming back regularly!`,
+      `5/5 stars for ${businessName}! Clean environment, welcoming team, and exceptional service from start to finish.${customNote ? ` Note: "${customNote}".` : ''} Strongly recommend this ${catNoun}!`,
+    ];
+    allOptions.hinglish = [
+      `${businessName} par mera visit sach mein bohot accha raha! 5-star service mili, staff kaafi polite aur supportive tha is ${catNoun} mein.${customNote ? ` Khas baat: "${customNote}".` : ''} Yahan regular aana definitely banta hai!`,
+      `Bohot hi shandaar experience raha ${businessName} par! Quality aur atmosphere dono ekdum top class the.${descHinglish}${customNote ? ` Meri taraf se: "${customNote}".` : ''} Sabhi dosto ko strongly recommend karunga!`,
+      `Full 5-star rating! ${businessName} ka staff aur hospitality dono dil jeet lene wale the.${customNote ? ` "${customNote}".` : ''} Definitely visiting this ${catNoun} again soon!`,
+    ];
+    allOptions.hindi = [
+      `${businessName} में हमारा 5-स्टार अनुभव बहुत ही शानदार रहा! इस ${catNounHindi} का माहौल बहुत सुखद है, सेवा समय पर और अत्यंत विनम्र थी।${customNote ? ` विशेष रूप से: "${customNote}"।` : ''} सभी को यहाँ आने की पुरज़ोर अनुशंसा करते हैं!`,
+      `${businessName} पर आकर बहुत ही अच्छा लगा! सेवा की गुणवत्ता और कर्मचारियों का सहयोग अत्यंत प्रशंसनीय था।${customNote ? ` विशेष टिप्पणी: "${customNote}"।` : ''} हम इस ${catNounHindi} में बार-बार आना पसंद करेंगे!`,
+      `अत्यंत उत्कृष्ट और संतोषजनक अनुभव! ${businessName} की स्वच्छता, प्रबंध और आत्मीयता ने बहुत प्रभावित किया।${customNote ? ` "${customNote}"।` : ''} 5 में से 5 स्टार!`,
+    ];
   } else if (rating === 4) {
-    english = `Great overall visit to ${businessName}. Professional service, clean environment, and friendly staff.${customNote ? ` Note: "${customNote}".` : ''} Looking forward to coming back again soon.`;
-    hinglish = `${businessName} mein visit kaafi accha aur comfortable raha. Staff aur service dono badhiya the.${customNote ? ` Mere hisaab se: "${customNote}".` : ''} Definitely recommended!`;
-    hindi = `${businessName} में हमारा अनुभव काफी अच्छा रहा। स्टाफ सहयोगी था और सेवा संतोषजनक थी।${customNote ? ` विशेष टिप्पणी: "${customNote}"।` : ''} हम पुनः अवश्य आएंगे।`;
+    allOptions.english = [
+      `Great overall visit to ${businessName}. Professional service, clean environment, and friendly staff at this ${catNoun}.${customNote ? ` Note: "${customNote}".` : ''} Looking forward to coming back again soon.`,
+      `Really enjoyed my time at ${businessName}. Good service, pleasant vibe, and reliable quality overall.${descSnippet}${customNote ? ` Specifically appreciated: "${customNote}".` : ''} Solid 4 stars!`,
+      `A very pleasant experience at ${businessName}. The staff handled everything well and the visit was smooth.${customNote ? ` Details: "${customNote}".` : ''} Would definitely recommend this ${catNoun}.`,
+    ];
+    allOptions.hinglish = [
+      `${businessName} mein visit kaafi accha aur comfortable raha. Staff aur service dono badhiya the is ${catNoun} par.${customNote ? ` Mere hisaab se: "${customNote}".` : ''} Definitely recommended!`,
+      `Overall bohot accha experience raha ${businessName} par. Service prompt thi aur staff friendly tha.${customNote ? ` "${customNote}".` : ''} Phir zaroor aayenge.`,
+      `${businessName} par time spend karke accha laga. Quality aur mahaul dono satisfying the.${customNote ? ` Feedback: "${customNote}".` : ''} 4 stars well deserved!`,
+    ];
+    allOptions.hindi = [
+      `${businessName} में हमारा अनुभव काफी अच्छा रहा। स्टाफ सहयोगी था और सेवा संतोषजनक थी।${customNote ? ` विशेष टिप्पणी: "${customNote}"।` : ''} हम इस ${catNounHindi} पर पुनः अवश्य आएंगे।`,
+      `${businessName} की सेवा और व्यवस्था बहुत अच्छी लगी। माहौल सुखद और कर्मचारी मददगार थे।${customNote ? ` "${customNote}"।` : ''} अच्छा और सुखद अनुभव!`,
+      `समग्र रूप से ${businessName} पर संतोषजनक यात्रा रही। गुणवत्ता उत्तम थी और प्रबंध व्यवस्थित था।${customNote ? ` टिप्पणी: "${customNote}"।` : ''}`,
+    ];
   } else if (rating === 3) {
-    english = `Average experience at ${businessName}. The visit was alright overall, though there is potential for improvement in service and speed.${customNote ? ` Details: "${customNote}".` : ''}`;
-    hinglish = `${businessName} par experience theek-thaak raha. Service theek thi lekin thoda aur behtar banaya ja sakta hai.${customNote ? ` Baat yeh hai: "${customNote}".` : ''}`;
-    hindi = `${businessName} में हमारा अनुभव सामान्य रहा। सब कुछ ठीक था, पर सेवा की गति और व्यवस्था में सुधार की गुंजाइश है।${customNote ? ` टिप्पणी: "${customNote}"।` : ''}`;
+    allOptions.english = [
+      `Average experience at ${businessName}. The visit was alright overall, though there is potential for improvement in service and speed at this ${catNoun}.${customNote ? ` Details: "${customNote}".` : ''}`,
+      `Decent visit to ${businessName}. Some parts were good, but certain areas could be improved for a better customer experience.${customNote ? ` Note: "${customNote}".` : ''}`,
+      `Mixed experience at ${businessName}. The core offering is fair, but attention to service could be improved.${customNote ? ` Observation: "${customNote}".` : ''}`,
+    ];
+    allOptions.hinglish = [
+      `${businessName} par experience theek-thaak raha. Service theek thi lekin is ${catNoun} ko thoda aur behtar banaya ja sakta hai.${customNote ? ` Baat yeh hai: "${customNote}".` : ''}`,
+      `Visit average raha ${businessName} par. Is ${catNoun} par service speed aur coordination mein improvement ki gunjaish hai.${customNote ? ` "${customNote}".` : ''}`,
+      `${businessName} par overall okay experience raha. Thoda aur attention dene par experience kaafi behtar ho sakta hai.${customNote ? ` Details: "${customNote}".` : ''}`,
+    ];
+    allOptions.hindi = [
+      `${businessName} में हमारा अनुभव सामान्य रहा। इस ${catNounHindi} में सेवा की गति और व्यवस्था में सुधार की गुंजाइश है।${customNote ? ` टिप्पणी: "${customNote}"।` : ''}`,
+      `${businessName} पर औसत अनुभव रहा। कुछ बातें अच्छी थीं, किंतु इस ${catNounHindi} की सेवा और संचालन को और बेहतर बनाया जा सकता है।${customNote ? ` विवरण: "${customNote}"।` : ''}`,
+      `मिला-जुला अनुभव। ${businessName} की मूल व्यवस्था ठीक थी, किंतु ग्राहकों पर थोड़ा और ध्यान देने की आवश्यकता है।${customNote ? ` "${customNote}"।` : ''}`,
+    ];
   } else if (rating === 2) {
-    english = `Visited ${businessName}, but unfortunately the experience was below expectations today.${customNote ? ` Reason: "${customNote}".` : ''} Hope management addresses this soon.`;
-    hinglish = `${businessName} par visit expect se thoda kamzor raha.${customNote ? ` Problem: "${customNote}".` : ''} Umeed hai management is par dhyaan dekar sudhaar karegi.`;
-    hindi = `${businessName} में हमारा अनुभव अपेक्षा से कम रहा।${customNote ? ` मुख्य कारण: "${customNote}"।` : ''} आशा है कि प्रबंधन इस पर ध्यान देकर सेवा में सुधार करेगा।`;
+    allOptions.english = [
+      `Visited ${businessName}, but unfortunately the experience was below expectations today at this ${catNoun}.${customNote ? ` Reason: "${customNote}".` : ''} Hope management addresses this soon.`,
+      `Had an underwhelming experience at ${businessName}. The service fell short of what was expected.${customNote ? ` Details: "${customNote}".` : ''} Constructive feedback for the team to improve.`,
+      `Disappointed with the visit to ${businessName}. There was noticeable delay and lack of attention from staff.${customNote ? ` Issue: "${customNote}".` : ''} Hope management takes customer feedback seriously.`,
+    ];
+    allOptions.hinglish = [
+      `${businessName} par visit expect se thoda kamzor raha is ${catNoun} mein.${customNote ? ` Problem: "${customNote}".` : ''} Umeed hai management is par dhyaan dekar sudhaar karegi.`,
+      `${businessName} par aaj ka experience thoda disappointing raha. Service quality aur responsiveness par dhyan dene ki zaroorat hai.${customNote ? ` "${customNote}".` : ''}`,
+      `Umeed se kam raha ${businessName} par experience. Management se request hai ki staff aur service standards par dhyaan dein.${customNote ? ` Note: "${customNote}".` : ''}`,
+    ];
+    allOptions.hindi = [
+      `${businessName} में हमारा अनुभव अपेक्षा से कम रहा। इस ${catNounHindi} के प्रबंधन से सुधार की अपेक्षा है।${customNote ? ` मुख्य कारण: "${customNote}"।` : ''}`,
+      `${businessName} पर आज का अनुभव निराशाजनक रहा। सेवा में अपेक्षित तत्परता और सहयोग का अभाव था।${customNote ? ` विवरण: "${customNote}"।` : ''}`,
+      `अपेक्षाओं के अनुरूप नहीं रहा। ${businessName} के प्रबंधन से निवेदन है कि सेवा और व्यवस्था में आवश्यक सुधार करें।${customNote ? ` "${customNote}"।` : ''}`,
+    ];
   } else {
-    english = `Disappointing visit to ${businessName}. The service did not meet expectations today.${customNote ? ` Issues faced: "${customNote}".` : ''}`;
-    hinglish = `${businessName} par experience kaafi disappointing raha.${customNote ? ` Dikkat: "${customNote}".` : ''} Service aur quality mein kaafi sudhaar ki zaroorat hai.`;
-    hindi = `${businessName} में आज का अनुभव निराशाजनक रहा।${customNote ? ` समस्या: "${customNote}"।` : ''} सेवा और व्यवस्था में ठोस सुधार की आवश्यकता है।`;
+    allOptions.english = [
+      `Disappointing visit to ${businessName}. The service did not meet expectations today at this ${catNoun}.${customNote ? ` Issues faced: "${customNote}".` : ''}`,
+      `Very poor experience at ${businessName}. There were notable issues with service and customer care.${customNote ? ` Details: "${customNote}".` : ''} Needs prompt management attention.`,
+      `Unsatisfactory experience at ${businessName}. Unresponsive service and inadequate quality during our visit.${customNote ? ` Feedback: "${customNote}".` : ''}`,
+    ];
+    allOptions.hinglish = [
+      `${businessName} par experience kaafi disappointing raha is ${catNoun} mein.${customNote ? ` Dikkat: "${customNote}".` : ''} Service aur quality mein kaafi sudhaar ki zaroorat hai.`,
+      `Bohot hi kharab experience raha ${businessName} par. Staff aur management dono ka response disappointing tha.${customNote ? ` "${customNote}".` : ''}`,
+      `${businessName} par bilkul bhi accha nahi laga. Service aur management mein turant sudhaar hona chahiye.${customNote ? ` "${customNote}".` : ''}`,
+    ];
+    allOptions.hindi = [
+      `${businessName} में आज का अनुभव निराशाजनक रहा। इस ${catNounHindi} की सेवा और व्यवस्था में ठोस सुधार की आवश्यकता है।${customNote ? ` समस्या: "${customNote}"।` : ''}`,
+      `${businessName} पर बहुत ही असंतोषजनक अनुभव रहा। ग्राहकों के प्रति कोई उचित ध्यान या सेवा नहीं दी गई।${customNote ? ` विवरण: "${customNote}"।` : ''}`,
+      `अत्यंत निराशाजनक यात्रा। ${businessName} की सेवा और व्यवस्था पूरी तरह से असंतोषजनक थी।${customNote ? ` "${customNote}"।` : ''}`,
+    ];
   }
 
-  return { english, hinglish, hindi };
+  const chosenOptions =
+    selectedLang === 'HINDI'
+      ? allOptions.hindi
+      : selectedLang === 'HINGLISH'
+      ? allOptions.hinglish
+      : allOptions.english;
+
+  return {
+    english: allOptions.english[0],
+    hinglish: allOptions.hinglish[0],
+    hindi: allOptions.hindi[0],
+    options: chosenOptions,
+    allOptions,
+  };
 }
 

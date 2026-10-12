@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Building2,
 } from 'lucide-react';
 import { PlatformBusiness, AdminRoute } from '../../types/admin';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
@@ -196,7 +197,9 @@ export const AdminBusinessesView: React.FC<AdminBusinessesViewProps> = ({ onNavi
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {/* Page Header */}
       <AdminPageHeader
+        icon={<Building2 size={20} />}
         title="Businesses"
+        badge={totalCount > 0 ? `${totalCount} Registered` : undefined}
         description="Manage registered businesses, monitor tenant health, and inspect configurations."
       />
 

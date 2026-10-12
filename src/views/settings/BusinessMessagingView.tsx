@@ -355,6 +355,7 @@ export const BusinessMessagingView: React.FC<BusinessMessagingViewProps> = ({ on
   return (
     <PageContainer>
       <PageHeader
+        icon={<MessageSquare size={20} />}
         title="Messaging & External Providers"
         description="Configure enterprise SMS (MSG91), WhatsApp (Meta Cloud API), and Email (SendGrid) connectors."
         actions={

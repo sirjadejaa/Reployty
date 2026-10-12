@@ -13,6 +13,7 @@ import { webhookRateLimiter } from '../auth/rateLimiter';
 import { webhookRouter } from './webhookRoutes';
 import { trackingRouter } from './trackingRoutes';
 import { publicRouter } from './publicRoutes';
+import { applicantRouter } from './applicantRoutes';
 
 import { requestIdMiddleware } from '../middleware/requestId';
 import { checkDatabaseHealth } from '../db/client';
@@ -88,6 +89,10 @@ apiApp.use('/public', publicRouter);
 
 // Mount Authentication Routes
 apiApp.use('/auth', authRouter);
+
+// Mount Business Application Tracking Routes
+apiApp.use('/applications', applicantRouter);
+apiApp.use('/applicant/applications', applicantRouter);
 
 // Mount Provider Webhooks
 apiApp.use('/webhooks', webhookRouter);

@@ -166,6 +166,7 @@ export async function getBusinessCustomers(
         },
         loyaltyCards: {
           where: { status: 'ACTIVE' },
+          orderBy: { updatedAt: 'desc' },
           take: 1,
           select: {
             id: true,
@@ -173,6 +174,15 @@ export async function getBusinessCustomers(
             totalStampsNeeded: true,
             pointsBalance: true,
             status: true,
+            program: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                targetStamps: true,
+                rewardTitle: true,
+              },
+            },
           },
         },
       },

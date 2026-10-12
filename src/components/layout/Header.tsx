@@ -16,6 +16,7 @@ const ROUTE_TITLES: Record<AdminRoute, { title: string; breadcrumb: string }> = 
   customers: { title: 'Customers', breadcrumb: 'CRM' },
   'business-customers': { title: 'Customers', breadcrumb: 'CRM' },
   loyalty: { title: 'Loyalty Program', breadcrumb: 'Programs' },
+  terminal: { title: 'Staff Awarding Terminal', breadcrumb: 'Loyalty' },
   rewards: { title: 'Rewards', breadcrumb: 'Incentives' },
   offers: { title: 'Offers & Promotions', breadcrumb: 'Marketing' },
   menu: { title: 'Menu, Services & Products', breadcrumb: 'Catalog' },
@@ -120,6 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Simulation Environment Indicator */}
         <div
+          className="hidden-mobile"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

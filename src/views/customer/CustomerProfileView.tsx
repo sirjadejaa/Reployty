@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Switch } from '../../components/ui/Switch';
 import { Building2, CheckCircle2, Lock, LogOut, Shield, User } from 'lucide-react';
+import { MemberIdentificationPass } from '../../components/customer/MemberIdentificationPass';
 
 export const CustomerProfileView: React.FC = () => {
   const { customer, business, branch, consents, updateProfile, updateConsent, logout } = useCustomerAuth();
@@ -52,14 +53,66 @@ export const CustomerProfileView: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div>
-        <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>
-          Customer Profile & Settings
-        </h1>
-        <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
-          Manage your personal details and communication preferences.
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Creative Mini Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '14px',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '10px',
+              backgroundColor: `${primaryColor}15`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: primaryColor,
+              flexShrink: 0,
+            }}
+          >
+            <User size={16} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
+              Customer Profile
+            </h1>
+            <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0' }}>
+              Personal details & notifications
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => logout()}
+          style={{
+            background: '#FEF2F2',
+            border: '1px solid #FEE2E2',
+            borderRadius: '8px',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#DC2626',
+          }}
+          title="Sign out of customer account"
+        >
+          <LogOut size={12} />
+          <span>Sign Out</span>
+        </button>
       </div>
 
       {successMsg && (
@@ -96,6 +149,17 @@ export const CustomerProfileView: React.FC = () => {
           {errorMsg}
         </div>
       )}
+
+      {/* Member Identification Pass */}
+      <MemberIdentificationPass
+        customerPhone={customer?.phone}
+        customerId={customer?.id}
+        customerName={customer?.name || 'Valued Customer'}
+        businessName={business?.name}
+        businessLogo={business?.logo}
+        primaryColor={primaryColor}
+        showInstructions={true}
+      />
 
       {/* Personal Info Form */}
       <form
@@ -260,7 +324,7 @@ export const CustomerProfileView: React.FC = () => {
       <div style={{ padding: '8px 0 20px' }}>
         <Button
           variant="outline"
-          onClick={logout}
+          onClick={() => logout()}
           style={{
             width: '100%',
             height: '44px',

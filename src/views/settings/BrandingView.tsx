@@ -4,6 +4,7 @@ import {
   Check,
   Upload,
   Trash2,
+  Palette,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -153,6 +154,7 @@ export const BrandingView: React.FC<BrandingViewProps> = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<Palette size={20} />}
         title="Business Branding & Theme"
         description="Configure the visual identity, theme preset, and accent palette for your customer-facing loyalty passes."
         actions={

@@ -192,7 +192,9 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ onNavigate
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {/* Level 1: Page Header */}
       <AdminPageHeader
+        icon={<Activity size={20} />}
         title="Overview"
+        badge={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />Live</span>}
         description="Monitor the health, operational metrics, and activity of your Reployty SaaS platform."
         actions={
           <Button

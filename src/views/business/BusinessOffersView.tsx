@@ -412,9 +412,10 @@ export const BusinessOffersView: React.FC<BusinessOffersViewProps> = () => {
   };
 
   return (
-    <div style={{ padding: isMobile ? 'var(--space-3)' : 'var(--space-6)', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="business-view-container" style={{ padding: isMobile ? 'var(--space-3)' : 'var(--space-6)', maxWidth: 1200, margin: '0 auto' }}>
       {/* Header */}
       <div
+        className="business-view-header"
         style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',

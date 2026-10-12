@@ -59,7 +59,18 @@ export async function createAuditLog(
   ctx: TenantContext,
   params: AuditLogParams
 ) {
-  const targetBusinessId = params.businessId !== undefined ? params.businessId : (ctx.businessId || null);
+  let targetBusinessId: string | null = params.businessId !== undefined ? params.businessId : (ctx.businessId || null);
+  if (targetBusinessId === 'platform_admin') {
+    targetBusinessId = null;
+  } else if (targetBusinessId) {
+    const bizExists = await prisma.business.findUnique({
+      where: { id: targetBusinessId },
+      select: { id: true },
+    });
+    if (!bizExists) {
+      targetBusinessId = null;
+    }
+  }
   let validActorUserId: string | null = null;
   if (ctx.user?.id) {
     const userExists = await prisma.user.findUnique({

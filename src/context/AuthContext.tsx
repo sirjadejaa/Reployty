@@ -113,6 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: errMsg };
       }
 
+      if (data.user?.isSuperAdmin) {
+        window.location.hash = 'admin-overview';
+      }
+
       await refreshAuth();
       return { success: true };
     } catch (err: any) {

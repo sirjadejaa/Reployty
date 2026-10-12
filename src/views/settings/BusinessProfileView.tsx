@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Building2 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -142,6 +142,7 @@ export const BusinessProfileView: React.FC<BusinessProfileViewProps> = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<Building2 size={20} />}
         title="Business Profile"
         description="Manage your business identity, contact information, and operating headquarters."
         actions={

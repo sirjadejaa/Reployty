@@ -180,7 +180,7 @@ export async function resolvePublicQr(identifier: string) {
  * Retrieves the full authenticated customer profile and context.
  */
 export async function getCustomerProfile(ctx: CustomerSessionContext) {
-  const [customer, consents, recentEvents] = await Promise.all([
+  const [customer, consents, recentEvents, program] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: ctx.customerId },
       select: {
@@ -209,11 +209,49 @@ export async function getCustomerProfile(ctx: CustomerSessionContext) {
       orderBy: { createdAt: 'desc' },
       take: 10,
     }),
+    prisma.loyaltyProgram.findFirst({
+      where: { businessId: ctx.businessId, status: 'ACTIVE' },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        targetStamps: true,
+        pointsPerCurrencyMinor: true,
+        rewardTitle: true,
+        status: true,
+      },
+    }),
   ]);
 
   if (!customer) {
     throw new CustomerPwaError('Customer profile not found', 'CUSTOMER_NOT_FOUND');
   }
+
+  let card = null;
+  if (program) {
+    card = await prisma.loyaltyCard.findUnique({
+      where: {
+        customerId_programId: {
+          customerId: ctx.customerId,
+          programId: program.id,
+        },
+      },
+      select: {
+        id: true,
+        stampsCollected: true,
+        totalStampsNeeded: true,
+        pointsBalance: true,
+        status: true,
+        issuedAt: true,
+      },
+    });
+  }
+
+  const targetStamps = card?.totalStampsNeeded ?? (program?.targetStamps || 10);
+  const currentStamps = card?.stampsCollected ?? customer.stampsBalance;
+  const currentPoints = card?.pointsBalance ?? customer.pointsBalance;
+  const isComplete = Boolean(program?.type === 'STAMP' && currentStamps >= targetStamps);
 
   return {
     customer,
@@ -221,10 +259,41 @@ export async function getCustomerProfile(ctx: CustomerSessionContext) {
     recentEvents,
     business: ctx.business,
     loyaltyState: {
-      status: 'PHASE_7_COMING_SOON',
-      message: 'Digital stamps and reward redemptions will unlock here in Phase 7.',
-      previewStamps: customer.stampsBalance,
-      previewPoints: customer.pointsBalance,
+      hasActiveProgram: Boolean(program),
+      program: program
+        ? {
+            id: program.id,
+            name: program.name,
+            type: program.type,
+            targetStamps: program.targetStamps,
+            pointsPerCurrencyMinor: program.pointsPerCurrencyMinor,
+            rewardTitle: program.rewardTitle,
+            status: program.status,
+          }
+        : null,
+      card: card
+        ? {
+            id: card.id,
+            stampsCollected: card.stampsCollected,
+            totalStampsNeeded: card.totalStampsNeeded,
+            pointsBalance: card.pointsBalance,
+            status: card.status,
+            issuedAt: card.issuedAt,
+          }
+        : null,
+      progress: program
+        ? {
+            currentStamps,
+            targetStamps,
+            stampsRemaining: Math.max(0, targetStamps - currentStamps),
+            isComplete,
+            currentPoints,
+            pointsConversionLabel:
+              program.type === 'POINTS'
+                ? `1 point per ₹${((program.pointsPerCurrencyMinor || 1000) / 100).toFixed(0)}`
+                : null,
+          }
+        : null,
     },
   };
 }

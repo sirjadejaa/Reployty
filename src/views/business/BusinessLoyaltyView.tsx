@@ -107,21 +107,77 @@ export const BusinessLoyaltyView: React.FC = () => {
     fetchProgram();
   }, [fetchProgram]);
 
+  // Check for scanned QR URL params: e.g. #terminal?customer=+15551234567 or #loyalty?customer=+15551234567
+  useEffect(() => {
+    const parseUrlCustomer = () => {
+      const rawHash = window.location.hash.replace(/^#\/?/, '');
+      const queryIdx = rawHash.indexOf('?');
+      let queryStr = '';
+      if (queryIdx !== -1) {
+        queryStr = rawHash.slice(queryIdx + 1);
+      } else if (window.location.search) {
+        queryStr = window.location.search.slice(1);
+      }
+
+      if (queryStr) {
+        const params = new URLSearchParams(queryStr);
+        const customerParam =
+          params.get('customer') ||
+          params.get('phone') ||
+          params.get('id') ||
+          params.get('code');
+        if (customerParam && customerParam.trim()) {
+          const clean = customerParam.trim();
+          setActiveTab('terminal');
+          setSearchQuery(clean);
+        }
+      }
+    };
+
+    parseUrlCustomer();
+    window.addEventListener('hashchange', parseUrlCustomer);
+    return () => window.removeEventListener('hashchange', parseUrlCustomer);
+  }, []);
+
   // Search customers for terminal (stable callback without selectedCustomer dependency)
   const searchCustomers = useCallback(async (query: string) => {
     try {
       setIsSearching(true);
-      const url = `/api/business/loyalty/customers${query ? `?search=${encodeURIComponent(query)}` : ''}`;
+      let cleanQuery = query.trim();
+      if (cleanQuery.includes('customer=')) {
+        const match = cleanQuery.match(/[?&]customer=([^&#]+)/);
+        if (match) {
+          cleanQuery = decodeURIComponent(match[1]).trim();
+        }
+      }
+      const url = `/api/business/loyalty/customers${cleanQuery ? `?search=${encodeURIComponent(cleanQuery)}` : ''}`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setSearchResults(data);
-        // If current selected customer is in results, refresh their state without triggering re-fetch
-        setSelectedCustomer(prev => {
-          if (!prev) return null;
-          const updated = data.find((c: LoyaltyCustomerLookup) => c.id === prev.id);
-          return updated || prev;
-        });
+
+        // Auto-select if a specific customer was scanned/searched
+        if (cleanQuery && Array.isArray(data) && data.length > 0) {
+          const exactMatch = data.find(
+            (c: LoyaltyCustomerLookup) =>
+              c.phone === cleanQuery ||
+              c.id === cleanQuery ||
+              cleanQuery.includes(c.phone) ||
+              c.phone.replace(/\D/g, '') === cleanQuery.replace(/\D/g, '')
+          );
+          if (exactMatch) {
+            setSelectedCustomer(exactMatch);
+          } else if (data.length === 1) {
+            setSelectedCustomer(data[0]);
+          }
+        } else {
+          // If current selected customer is in results, refresh their state
+          setSelectedCustomer(prev => {
+            if (!prev) return null;
+            const updated = data.find((c: LoyaltyCustomerLookup) => c.id === prev.id);
+            return updated || prev;
+          });
+        }
       }
     } catch (err) {
       console.error('Customer search failed', err);

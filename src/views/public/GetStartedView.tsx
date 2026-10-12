@@ -45,6 +45,7 @@ export const GetStartedView: React.FC<GetStartedViewProps> = ({ onNavigateLogin 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
+  const [submittedAppNumber, setSubmittedAppNumber] = useState<string>('');
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -151,6 +152,7 @@ export const GetStartedView: React.FC<GetStartedViewProps> = ({ onNavigateLogin 
         throw new Error(json.error || 'Failed to submit application');
       }
 
+      setSubmittedAppNumber(json.applicationNumber || '');
       setConfirmationMessage(
         json.message ||
           'Thanks — your Reployty setup request has been received. Our team will review your information and prepare your business workspace.'
@@ -231,6 +233,29 @@ export const GetStartedView: React.FC<GetStartedViewProps> = ({ onNavigateLogin 
             {confirmationMessage}
           </p>
 
+          {submittedAppNumber && (
+            <div
+              style={{
+                backgroundColor: '#EEF2FF',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid #C7D2FE',
+                padding: 'var(--space-4)',
+                textAlign: 'center',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: '#4F6BFF', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Your Application Reference Number
+              </div>
+              <code style={{ fontSize: '20px', fontWeight: 800, color: '#1E1B4B', letterSpacing: '0.05em' }}>
+                #{submittedAppNumber}
+              </code>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0' }}>
+                Save this reference number to monitor verification progress in real-time.
+              </p>
+            </div>
+          )}
+
           <div
             style={{
               backgroundColor: 'var(--color-bg)',
@@ -259,6 +284,17 @@ export const GetStartedView: React.FC<GetStartedViewProps> = ({ onNavigateLogin 
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => {
+                window.location.hash = `application-status?ref=${submittedAppNumber}&email=${encodeURIComponent(formData.ownerEmail)}`;
+              }}
+              style={{ width: '100%' }}
+            >
+              Track Application Status
+              <ArrowRight size={16} style={{ marginLeft: '6px' }} />
+            </Button>
             <Button
               variant="outline"
               size="md"

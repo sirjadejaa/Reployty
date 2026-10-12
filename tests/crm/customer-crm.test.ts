@@ -571,7 +571,10 @@ async function runCRMTestSuite() {
     try {
       const salonSegment = await createBusinessSegment(salonOwnerCtx, {
         name: 'Salon Segment',
-        ruleDefinition: { matchType: 'ALL', conditions: [] },
+        ruleDefinition: {
+          matchType: 'ALL',
+          conditions: [{ field: 'totalSpendMinor', operator: 'GREATER_THAN', value: 100 }],
+        },
       });
       await deleteBusinessSegment(cafeOwnerCtx, salonSegment.id);
     } catch (err: any) {

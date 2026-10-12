@@ -17,12 +17,16 @@ import {
   getAllPlans,
   createPlan,
   updatePlan,
+  deletePlan,
+  togglePlanStatus,
   adminGetAllSubscriptions,
   adminGetAllInvoices,
   adminGetAllPayments,
   adminUpdateSubscriptionStatus,
   handlePaymentWebhook,
   adminAssignBusinessPlan,
+  getPlanCleanupPreview,
+  executePlanCleanup,
 } from '../services/billingService';
 import { PLATFORM_FEATURES } from '../services/entitlementService';
 import { UsageMeterService } from '../services/usageMeterService';
@@ -269,12 +273,43 @@ adminRouter.get('/analytics', async (req: TenantRequest, res: Response): Promise
 // ============================================================================
 // 12. PLANS MANAGEMENT
 // ============================================================================
-adminRouter.get('/plans', async (_req: TenantRequest, res: Response): Promise<void> => {
+adminRouter.get('/plans', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
+    const includeHistorical = req.query.includeInactive === 'true' || req.query.view === 'all';
+    if (!includeHistorical) {
+      const activePlans = await getAllPlans(true);
+      const cataloguePlans = activePlans.filter(
+        (p) => p.slug === 'free' || (!['starter', 'growth', 'enterprise'].includes(p.slug) && p.isActive)
+      );
+      res.json(cataloguePlans);
+      return;
+    }
     const plans = await getAllPlans(false);
     res.json(plans);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch plans', code: 'PLATFORM_ERROR' });
+  }
+});
+
+adminRouter.get('/plans/cleanup/preview', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const preview = await getPlanCleanupPreview(req.tenantContext!);
+    res.json(preview);
+  } catch (err: any) {
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: err.message || 'Failed to preview package cleanup', code: 'CLEANUP_ERROR' });
+  }
+});
+
+adminRouter.post('/plans/cleanup', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const result = await executePlanCleanup(req.tenantContext!, {
+      dryRun: req.body?.dryRun === true,
+    });
+    res.json(result);
+  } catch (err: any) {
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: err.message || 'Failed to execute package cleanup', code: 'CLEANUP_ERROR' });
   }
 });
 
@@ -296,12 +331,65 @@ adminRouter.put('/plans/:id', async (req: TenantRequest, res: Response): Promise
   }
 });
 
-// GET /api/admin/features
-adminRouter.get('/features', async (_req: TenantRequest, res: Response): Promise<void> => {
-  res.json(PLATFORM_FEATURES);
+adminRouter.patch('/plans/:id/status', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { isActive } = req.body;
+    if (typeof isActive !== 'boolean') {
+      res.status(400).json({ error: 'isActive must be a boolean', code: 'BAD_REQUEST' });
+      return;
+    }
+    const plan = await togglePlanStatus(req.tenantContext!, String(req.params.id), isActive);
+    res.json(plan);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message, code: 'PLAN_ERROR' });
+  }
 });
 
-// PUT /api/admin/businesses/:id/plan
+adminRouter.delete('/plans/:id', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const reassignToFree = req.query.reassignToFree === 'true' || req.body?.reassignToFree === true;
+    const result = await deletePlan(req.tenantContext!, String(req.params.id), { reassignToFree });
+    res.json(result);
+  } catch (err: any) {
+    const status = err.statusCode || 400;
+    res.status(status).json({ error: err.message, code: status === 409 ? 'PLAN_IN_USE' : 'PLAN_DELETE_ERROR' });
+  }
+});
+
+// GET /api/admin/features
+adminRouter.get('/features', async (_req: TenantRequest, res: Response): Promise<void> => {
+  const normalized = PLATFORM_FEATURES.map((f) => ({
+    key: f.id,
+    id: f.id,
+    label: f.name,
+    name: f.name,
+    category: f.category,
+    description: f.description,
+    isCore: f.category === 'CUSTOMER' || f.category === 'LOYALTY',
+  }));
+  res.json({
+    features: normalized,
+    items: normalized,
+  });
+});
+
+// POST /api/admin/businesses/:id/assign-plan
+adminRouter.post('/businesses/:id/assign-plan', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { planId } = req.body;
+    if (!planId) {
+      res.status(400).json({ error: 'planId is required', code: 'BAD_REQUEST' });
+      return;
+    }
+    const result = await adminAssignBusinessPlan(req.tenantContext!, String(req.params.id), String(planId));
+    res.json(result);
+  } catch (err: any) {
+    const status = err.statusCode || 400;
+    res.status(status).json({ error: err.message, code: 'PLAN_ASSIGN_ERROR' });
+  }
+});
+
+// PUT /api/admin/businesses/:id/plan (compatibility)
 adminRouter.put('/businesses/:id/plan', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { planId } = req.body;
@@ -447,7 +535,7 @@ adminRouter.get('/onboarding-requests/:id', async (req: TenantRequest, res: Resp
 // PATCH /api/admin/onboarding-requests/:id/status
 adminRouter.patch('/onboarding-requests/:id/status', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const { status, reviewNotes } = req.body;
+    const { status, reviewNotes, notes, rejectionReason, additionalInfoRequested } = req.body;
     if (!status || !Object.values(OnboardingRequestStatus).includes(status)) {
       res.status(400).json({
         error: `Invalid status. Must be one of: ${Object.values(OnboardingRequestStatus).join(', ')}`,
@@ -460,7 +548,11 @@ adminRouter.patch('/onboarding-requests/:id/status', async (req: TenantRequest, 
       req.tenantContext!,
       String(req.params.id),
       status as OnboardingRequestStatus,
-      { notes: typeof reviewNotes === 'string' ? reviewNotes : undefined }
+      {
+        notes: typeof reviewNotes === 'string' ? reviewNotes : notes,
+        rejectionReason: rejectionReason || (typeof reviewNotes === 'string' ? reviewNotes : notes),
+        additionalInfoRequested,
+      }
     );
 
     res.json({
@@ -470,6 +562,30 @@ adminRouter.patch('/onboarding-requests/:id/status', async (req: TenantRequest, 
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message || 'Failed to update request status', code: 'MUTATION_ERROR' });
+  }
+});
+
+// POST /api/admin/onboarding-requests/:id/request-info
+adminRouter.post('/onboarding-requests/:id/request-info', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      res.status(400).json({ error: 'Message explaining requested information is required', code: 'BAD_REQUEST' });
+      return;
+    }
+    const updated = await updateOnboardingRequestStatus(
+      req.tenantContext!,
+      String(req.params.id),
+      OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED,
+      { additionalInfoRequested: message.trim(), notes: message.trim() }
+    );
+    res.json({
+      success: true,
+      request: updated,
+      message: 'Additional information requested from applicant',
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to request additional information', code: 'MUTATION_ERROR' });
   }
 });
 

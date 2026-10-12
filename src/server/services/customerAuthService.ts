@@ -235,6 +235,21 @@ export async function findOrCreateCustomer(
           },
         });
       }
+
+      // Auto-enroll customer in business's active loyalty program inside the same transaction
+      const activeProgram = await tx.loyaltyProgram.findFirst({
+        where: { businessId, status: 'ACTIVE' },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (activeProgram) {
+        const targetStamps = activeProgram.targetStamps || 10;
+        await tx.$executeRaw`
+          INSERT INTO loyalty_cards (id, "businessId", "customerId", "programId", "totalStampsNeeded", "stampsCollected", "pointsBalance", status, "issuedAt", "createdAt", "updatedAt")
+          VALUES (gen_random_uuid()::text, ${businessId}, ${customer.id}, ${activeProgram.id}, ${targetStamps}, 0, 0, 'ACTIVE'::"CardStatus", NOW(), NOW(), NOW())
+          ON CONFLICT ("customerId", "programId") DO NOTHING
+        `;
+      }
     } else {
       // Returning customer: update last visit and visit count
       customer = await tx.customer.update({
@@ -246,6 +261,21 @@ export async function findOrCreateCustomer(
           name: data.name?.trim() && customer.name === 'New Regular' ? data.name.trim() : customer.name,
         },
       });
+
+      // Ensure returning customer has active loyalty card if not already issued
+      const activeProgram = await tx.loyaltyProgram.findFirst({
+        where: { businessId, status: 'ACTIVE' },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (activeProgram) {
+        const targetStamps = activeProgram.targetStamps || 10;
+        await tx.$executeRaw`
+          INSERT INTO loyalty_cards (id, "businessId", "customerId", "programId", "totalStampsNeeded", "stampsCollected", "pointsBalance", status, "issuedAt", "createdAt", "updatedAt")
+          VALUES (gen_random_uuid()::text, ${businessId}, ${customer.id}, ${activeProgram.id}, ${targetStamps}, 0, 0, 'ACTIVE'::"CardStatus", NOW(), NOW(), NOW())
+          ON CONFLICT ("customerId", "programId") DO NOTHING
+        `;
+      }
 
       // Record CUSTOMER_LOGIN event
       await tx.customerEvent.create({

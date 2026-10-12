@@ -5,12 +5,17 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { AlertCircle, ArrowLeft, CheckCircle, Clock, ShieldCheck, Sparkles } from 'lucide-react';
 
-interface CustomerJoinViewProps {
+export interface CustomerJoinViewProps {
   qrCodeToken: string;
   onJoinSuccess: () => void;
+  onBack?: () => void;
 }
 
-export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken, onJoinSuccess }) => {
+export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({
+  qrCodeToken,
+  onJoinSuccess,
+  onBack,
+}) => {
   const { resolveQr, requestOtp, verifyOtp } = useCustomerAuth();
 
   const [qrData, setQrData] = useState<PublicQrResolution | null>(null);
@@ -62,7 +67,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
     return () => {
       mounted = false;
     };
-  }, [qrCodeToken]);
+  }, [qrCodeToken, resolveQr]);
 
   // Countdown timer for OTP resend cooldown
   useEffect(() => {
@@ -168,22 +173,25 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#F8FAFC',
           padding: '24px',
+          boxSizing: 'border-box',
           textAlign: 'center',
+          fontFamily: "'Inter', sans-serif",
         }}
       >
         <div
           style={{
             width: 48,
             height: 48,
-            borderRadius: '12px',
-            backgroundColor: `${primaryColor}20`,
+            borderRadius: '14px',
+            backgroundColor: `${primaryColor}15`,
             color: primaryColor,
             display: 'flex',
             alignItems: 'center',
@@ -194,10 +202,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
         >
           <Sparkles size={24} />
         </div>
-        <div style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A' }}>
-          Connecting to business...
+        <div style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A' }}>
+          Connecting to store...
         </div>
-        <div style={{ fontSize: '13px', color: '#64748B', marginTop: '4px' }}>
+        <div style={{ fontSize: '13px', color: '#64748B', marginTop: '6px' }}>
           Loading your customer loyalty experience
         </div>
       </div>
@@ -208,14 +216,17 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#F8FAFC',
           padding: '24px',
+          boxSizing: 'border-box',
           textAlign: 'center',
+          fontFamily: "'Inter', sans-serif",
         }}
       >
         <div
@@ -233,10 +244,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
         >
           <AlertCircle size={26} />
         </div>
-        <div style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
-          Invalid or Expired QR Code
+        <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>
+          Unable to Load Store
         </div>
-        <p style={{ fontSize: '14px', color: '#64748B', maxWidth: '320px', lineHeight: 1.5, marginBottom: '24px' }}>
+        <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '320px', lineHeight: 1.5, marginBottom: '24px' }}>
           {error}
         </p>
         <Button variant="outline" onClick={() => window.location.reload()}>
@@ -252,55 +263,121 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
   return (
     <div
       style={{
-        minHeight: '100vh',
-        backgroundColor: '#F1F5F9',
+        minHeight: '100dvh',
+        width: '100%',
+        backgroundColor: '#F8FAFC',
         display: 'flex',
-        justifyContent: 'center',
+        flexDirection: 'column',
         alignItems: 'center',
-        padding: '16px',
+        justifyContent: 'flex-start',
+        padding: 0,
+        boxSizing: 'border-box',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
+      {/* Mobile Shell Card: Edge-to-edge on mobile, neatly centered on tablet/desktop */}
       <div
         style={{
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '440px',
+          minHeight: '100dvh',
           backgroundColor: '#FFFFFF',
-          borderRadius: '20px',
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)',
-          overflow: 'hidden',
-          border: '1px solid #E2E8F0',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+          position: 'relative',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.05)',
         }}
       >
+        {/* Sticky Mobile App Header */}
+        <header
+          style={{
+            padding: '12px 16px',
+            backgroundColor: '#FFFFFF',
+            borderBottom: '1px solid #F1F5F9',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            boxSizing: 'border-box',
+          }}
+        >
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'none',
+                border: 'none',
+                color: '#64748B',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '6px 8px',
+                borderRadius: '8px',
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+          ) : (
+            <div style={{ width: 48 }} />
+          )}
+
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', textAlign: 'center', flex: 1 }}>
+            {business.name}
+          </div>
+
+          <div style={{ width: onBack ? 48 : 0 }} />
+        </header>
+
         {/* Business Hero Banner */}
         <div
           style={{
-            background: `linear-gradient(135deg, ${primaryColor} 0%, #1E293B 100%)`,
+            background: `linear-gradient(135deg, ${primaryColor} 0%, #111827 100%)`,
             color: '#FFFFFF',
-            padding: '32px 24px 28px',
+            padding: '24px 20px 22px',
             textAlign: 'center',
             position: 'relative',
+            boxSizing: 'border-box',
           }}
         >
           <div
             style={{
-              width: 64,
-              height: 64,
+              width: 56,
+              height: 56,
               borderRadius: '16px',
               backgroundColor: '#FFFFFF',
               color: primaryColor,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '24px',
+              fontSize: '22px',
               fontWeight: 800,
-              margin: '0 auto 14px',
+              margin: '0 auto 10px',
               boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
+              overflow: 'hidden',
             }}
           >
-            {business.name.charAt(0)}
+            {business.logo ? (
+              <img
+                src={business.logo}
+                alt={business.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <span>{business.name.charAt(0).toUpperCase()}</span>
+            )}
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+          <h1 style={{ fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF' }}>
             {business.name}
           </h1>
           {branch?.name && (
@@ -309,12 +386,11 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '12px',
+                fontSize: '11px',
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                padding: '4px 10px',
+                padding: '3px 9px',
                 borderRadius: '12px',
-                marginTop: '8px',
-                backdropFilter: 'blur(4px)',
+                marginTop: '6px',
               }}
             >
               <span>{branch.name}</span>
@@ -324,11 +400,14 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
           {business.description && (
             <p
               style={{
-                fontSize: '13px',
+                fontSize: '12px',
                 color: 'rgba(255, 255, 255, 0.85)',
-                marginTop: '10px',
+                marginTop: '8px',
                 marginBottom: 0,
                 lineHeight: 1.4,
+                maxWidth: '300px',
+                marginLeft: 'auto',
+                marginRight: 'auto',
               }}
             >
               {business.description}
@@ -337,7 +416,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '24px 20px 32px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
           {error && (
             <div
               style={{
@@ -351,6 +430,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 color: '#B91C1C',
                 fontSize: '13px',
                 marginBottom: '18px',
+                boxSizing: 'border-box',
               }}
             >
               <AlertCircle size={18} style={{ flexShrink: 0 }} />
@@ -360,34 +440,38 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
 
           {/* STEP 1: Phone Number Input */}
           {step === 'phone' && (
-            <form onSubmit={handleRequestOtp}>
-              <div style={{ marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
+            <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div style={{ marginBottom: '18px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
                   Join or Sign In
                 </h2>
-                <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.4 }}>
-                  Enter your mobile number. We'll text you a verification code to securely access your customer profile.
+                <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.45, margin: 0 }}>
+                  Enter your mobile phone number. We'll text you a 6-digit verification code to access your loyalty card and rewards.
                 </p>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
                   Mobile Phone Number *
                 </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                   <select
                     value={countryCode}
                     onChange={e => setCountryCode(e.target.value)}
                     style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
+                      height: '48px',
+                      padding: '0 10px',
+                      borderRadius: '12px',
                       border: '1px solid #CBD5E1',
                       backgroundColor: '#F8FAFC',
                       fontSize: '14px',
                       fontWeight: 600,
                       color: '#334155',
                       cursor: 'pointer',
-                      width: '90px',
+                      width: '92px',
+                      flexShrink: 0,
+                      boxSizing: 'border-box',
+                      outline: 'none',
                     }}
                   >
                     <option value="+1">🇺🇸 +1</option>
@@ -399,33 +483,37 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                   <input
                     type="tel"
                     required
-                    placeholder="(555) 000-0000"
+                    inputMode="tel"
+                    placeholder="Enter phone number"
                     value={phoneDigits}
                     onChange={e => setPhoneDigits(e.target.value)}
                     style={{
                       flex: 1,
-                      padding: '10px 14px',
-                      borderRadius: '10px',
+                      height: '48px',
+                      padding: '0 14px',
+                      borderRadius: '12px',
                       border: '1px solid #CBD5E1',
-                      fontSize: '15px',
+                      fontSize: '16px', // 16px prevents mobile auto-zoom
                       color: '#0F172A',
                       outline: 'none',
+                      backgroundColor: '#FFFFFF',
+                      boxSizing: 'border-box',
+                      width: '100%',
                     }}
-                    autoFocus
                   />
                 </div>
               </div>
 
               {/* Consent Checkboxes */}
-              <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ marginBottom: '22px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={termsAccepted}
                     onChange={e => setTermsAccepted(e.target.checked)}
-                    style={{ marginTop: '3px' }}
+                    style={{ marginTop: '3px', width: '18px', height: '18px', flexShrink: 0 }}
                   />
-                  <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                  <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
                     I accept the <strong>Terms of Service</strong> and acknowledge the <strong>Privacy Policy</strong>.
                   </span>
                 </label>
@@ -435,9 +523,9 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                     type="checkbox"
                     checked={marketingConsent}
                     onChange={e => setMarketingConsent(e.target.checked)}
-                    style={{ marginTop: '3px' }}
+                    style={{ marginTop: '3px', width: '18px', height: '18px', flexShrink: 0 }}
                   />
-                  <span style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.4 }}>
+                  <span style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.45 }}>
                     (Optional) Send me exclusive member offers, birthday rewards, and updates from {business.name}.
                   </span>
                 </label>
@@ -449,9 +537,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 disabled={submitting}
                 style={{
                   width: '100%',
-                  height: '46px',
+                  height: '48px',
                   fontSize: '15px',
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  borderRadius: '12px',
                   backgroundColor: primaryColor,
                   borderColor: primaryColor,
                 }}
@@ -465,7 +554,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  marginTop: '16px',
+                  marginTop: '18px',
                   fontSize: '12px',
                   color: '#94A3B8',
                 }}
@@ -478,7 +567,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
 
           {/* STEP 2: OTP Entry */}
           {step === 'otp' && (
-            <form onSubmit={handleVerifyOtp}>
+            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
               <div style={{ marginBottom: '18px' }}>
                 <button
                   type="button"
@@ -497,14 +586,15 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                     padding: 0,
                     cursor: 'pointer',
                     marginBottom: '10px',
+                    fontWeight: 600,
                   }}
                 >
                   <ArrowLeft size={16} /> Edit phone number
                 </button>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
                   Enter Verification Code
                 </h2>
-                <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.4 }}>
+                <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.45, margin: 0 }}>
                   We sent a 6-digit code to <strong style={{ color: '#0F172A' }}>{fullPhone}</strong>
                 </p>
               </div>
@@ -523,6 +613,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    boxSizing: 'border-box',
                   }}
                 >
                   <span>Simulation Code: <strong>{devOtpHint}</strong></span>
@@ -533,7 +624,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                       background: 'none',
                       border: 'none',
                       color: '#4F6BFF',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       cursor: 'pointer',
                       fontSize: '12px',
                       textDecoration: 'underline',
@@ -547,6 +638,8 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
               <div style={{ marginBottom: '20px' }}>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   required
                   placeholder="• • • • • •"
@@ -554,18 +647,18 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                   onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
                   style={{
                     width: '100%',
-                    padding: '14px',
+                    height: '52px',
                     borderRadius: '12px',
                     border: '2px solid #CBD5E1',
                     fontSize: '24px',
-                    letterSpacing: '0.4em',
+                    letterSpacing: '0.35em',
                     textAlign: 'center',
-                    fontWeight: 700,
+                    fontWeight: 800,
                     color: '#0F172A',
                     outline: 'none',
                     backgroundColor: '#F8FAFC',
+                    boxSizing: 'border-box',
                   }}
-                  autoFocus
                 />
               </div>
 
@@ -575,9 +668,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 disabled={submitting || otpCode.length !== 6}
                 style={{
                   width: '100%',
-                  height: '46px',
+                  height: '48px',
                   fontSize: '15px',
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  borderRadius: '12px',
                   backgroundColor: primaryColor,
                   borderColor: primaryColor,
                 }}
@@ -613,7 +707,7 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
 
           {/* STEP 3: Customer Name Prompt */}
           {step === 'name' && (
-            <form onSubmit={handleSaveName}>
+            <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
               <div style={{ marginBottom: '18px', textAlign: 'center' }}>
                 <div
                   style={{
@@ -630,10 +724,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 >
                   <CheckCircle size={26} />
                 </div>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0' }}>
                   Phone Verified!
                 </h2>
-                <p style={{ fontSize: '13px', color: '#64748B' }}>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
                   What should we call you at {business.name}?
                 </p>
               </div>
@@ -644,7 +738,6 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                   placeholder="e.g. Alex"
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
-                  autoFocus
                 />
               </div>
 
@@ -654,9 +747,10 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                 disabled={submitting}
                 style={{
                   width: '100%',
-                  height: '46px',
+                  height: '48px',
                   fontSize: '15px',
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  borderRadius: '12px',
                   backgroundColor: primaryColor,
                   borderColor: primaryColor,
                 }}
@@ -673,7 +767,9 @@ export const CustomerJoinView: React.FC<CustomerJoinViewProps> = ({ qrCodeToken,
                     border: 'none',
                     color: '#94A3B8',
                     fontSize: '13px',
+                    fontWeight: 500,
                     cursor: 'pointer',
+                    padding: '8px',
                   }}
                 >
                   Skip for now

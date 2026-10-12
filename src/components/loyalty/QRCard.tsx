@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { QrCode, Download, Printer, Share2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -18,8 +19,38 @@ export const QRCard: React.FC<QRCardProps> = ({
   className = '',
 }) => {
   const { addToast } = useToast();
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  const defaultOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://reployty.com';
+  const joinUrl = `${defaultOrigin}/#join/${slug}`;
+
+  useEffect(() => {
+    let isMounted = true;
+    QRCode.toDataURL(joinUrl, {
+      width: 280,
+      margin: 1,
+      color: {
+        dark: '#0F172A',
+        light: '#FFFFFF',
+      },
+      errorCorrectionLevel: 'M',
+    })
+      .then((url) => {
+        if (isMounted) setQrDataUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [joinUrl]);
 
   const handleDownload = () => {
+    if (qrDataUrl) {
+      const a = document.createElement('a');
+      a.href = qrDataUrl;
+      a.download = `${slug || 'reployty'}-qr-code.png`;
+      a.click();
+    }
     addToast({
       type: 'success',
       title: 'QR Code Downloaded',
@@ -37,7 +68,7 @@ export const QRCard: React.FC<QRCardProps> = ({
 
   const handleShare = () => {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`https://reployty.com/join/${slug}`);
+      navigator.clipboard.writeText(joinUrl);
       addToast({
         type: 'success',
         title: 'Link Copied',
@@ -94,27 +125,24 @@ export const QRCard: React.FC<QRCardProps> = ({
               justifyContent: 'center',
               boxShadow: 'var(--shadow-subtle)',
               position: 'relative',
+              overflow: 'hidden',
+              padding: '6px',
             }}
           >
-            <QrCode size={108} color="var(--color-text-primary)" strokeWidth={1.5} />
-            <div
-              style={{
-                position: 'absolute',
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                backgroundColor: 'var(--color-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#FFF',
-                fontWeight: 700,
-                fontSize: 12,
-                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-              }}
-            >
-              R
-            </div>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={`${businessName} QR Standee`}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  imageRendering: 'pixelated',
+                }}
+              />
+            ) : (
+              <QrCode size={108} color="var(--color-text-primary)" strokeWidth={1.5} />
+            )}
           </div>
           <div>
             <span

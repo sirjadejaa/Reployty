@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Menu, ShieldCheck, ArrowUpRight, Building2 } from 'lucide-react';
 import { AdminRoute } from '../../types/admin';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../ui/Avatar';
@@ -34,6 +34,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
   return (
     <header
+      className="app-header admin-header"
       style={{
         height: 64,
         backgroundColor: '#FFFFFF',
@@ -48,32 +49,38 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
       }}
     >
       {/* Left side: Hamburger toggle + breadcrumb context */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, overflow: 'hidden' }}>
         <button
           type="button"
           className="sidebar-toggle-btn"
           onClick={onToggleSidebar}
           aria-label="Toggle navigation sidebar"
+          style={{ flexShrink: 0 }}
         >
           <Menu size={18} />
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, overflow: 'hidden' }}>
           <span
+            className="hidden-mobile"
             style={{
               fontSize: '12px',
               fontWeight: 500,
               color: '#94A3B8',
+              whiteSpace: 'nowrap',
             }}
           >
             {info.section}
           </span>
-          <span style={{ fontSize: '12px', color: '#CBD5E1' }}>/</span>
+          <span className="hidden-mobile" style={{ fontSize: '12px', color: '#CBD5E1' }}>/</span>
           <span
             style={{
               fontSize: '14px',
               fontWeight: 600,
               color: '#1E293B',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             {info.title}
@@ -81,10 +88,11 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right side: Subtle Super Admin badge, business app switcher, avatar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-        {/* Simulation Environment Indicator */}
+      {/* Right side: Clean, un-crowded action bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+        {/* Simulation Environment Indicator - Desktop Only */}
         <div
+          className="hidden-mobile"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -104,8 +112,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <span>Simulation</span>
         </div>
 
-        {/* Subtle Super Admin badge */}
+        {/* Subtle Super Admin badge - Desktop Only */}
         <div
+          className="hidden-mobile"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -123,38 +132,66 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <span>Super Admin</span>
         </div>
 
-
-        {/* Exit to Business App */}
+        {/* Exit to Business App Switcher */}
         {onExitToBusiness && (
-          <button
-            type="button"
-            onClick={onExitToBusiness}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '6px 12px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              color: '#475569',
-              cursor: 'pointer',
-              transition: 'background-color 150ms ease, border-color 150ms ease',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
-              e.currentTarget.style.borderColor = '#CBD5E1';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
-              e.currentTarget.style.borderColor = '#E2E8F0';
-            }}
-          >
-            <span>Business App</span>
-            <ArrowUpRight size={13} color="#64748B" />
-          </button>
+          <>
+            {/* Desktop variant */}
+            <button
+              type="button"
+              onClick={onExitToBusiness}
+              className="hidden-mobile"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'background-color 150ms ease, border-color 150ms ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#F8FAFC';
+                e.currentTarget.style.borderColor = '#CBD5E1';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.borderColor = '#E2E8F0';
+              }}
+              title="Switch to Tenant Workspace"
+            >
+              <span>Business App</span>
+              <ArrowUpRight size={13} color="#64748B" />
+            </button>
+
+            {/* Mobile variant: Compact Tenant button */}
+            <button
+              type="button"
+              onClick={onExitToBusiness}
+              className="hidden-desktop"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '5px 8px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#475569',
+                cursor: 'pointer',
+              }}
+              title="Switch to Tenant Workspace"
+            >
+              <Building2 size={13} color="#4F6BFF" />
+              <span>Tenant</span>
+            </button>
+          </>
         )}
 
         <Avatar name={user?.name || 'Administrator'} size="sm" />

@@ -42,14 +42,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigateForgotPassword }
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 'var(--space-6) var(--space-4)',
-        backgroundColor: 'var(--color-bg-canvas)',
-        background: 'radial-gradient(ellipse at 50% 10%, rgba(79, 107, 255, 0.08) 0%, var(--color-bg-canvas) 70%)',
+        boxSizing: 'border-box',
+        backgroundColor: 'var(--color-bg)',
+        background: 'radial-gradient(ellipse at 50% 10%, rgba(79, 107, 255, 0.08) 0%, var(--color-bg) 70%)',
       }}
     >
       {/* Brand Header */}
@@ -102,8 +104,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigateForgotPassword }
           borderRadius: 'var(--radius-xl)',
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-card-elevated)',
-          padding: 'var(--space-8)',
+          padding: 'var(--space-6) var(--space-5)',
           boxSizing: 'border-box',
+          margin: '0 auto',
         }}
       >
         <div style={{ marginBottom: 'var(--space-6)' }}>
@@ -255,6 +258,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigateForgotPassword }
                 }}
               >
                 Apply for Reployty Workspace
+              </a>
+              <span style={{ margin: '0 var(--space-2)', color: 'var(--color-text-muted)' }}>•</span>
+              <a
+                href="#application-status"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+              >
+                Track Application
               </a>
             </div>
           </div>

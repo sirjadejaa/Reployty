@@ -697,6 +697,7 @@ export async function getCustomerRewards(ctx: CustomerSessionContext) {
     }),
     prisma.loyaltyProgram.findFirst({
       where: { businessId: ctx.businessId, status: 'ACTIVE' },
+      orderBy: { updatedAt: 'desc' },
     }),
     prisma.rewardRedemption.findMany({
       where: {

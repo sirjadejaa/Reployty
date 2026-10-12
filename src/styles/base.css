@@ -18,10 +18,12 @@ html {
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
   height: 100%;
+  width: 100%;
 }
 
 body {
   min-height: 100%;
+  width: 100%;
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
   background-color: var(--color-bg);
@@ -34,7 +36,11 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Typography Hierarchy */

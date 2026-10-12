@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import {
   QrCode,
   Clock,
   Phone,
+  Smartphone,
 } from 'lucide-react';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -17,6 +19,15 @@ export const CustomerPreviewView: React.FC = () => {
   const { currentBusiness } = useTenant();
   const [activeCategory, setActiveCategory] = useState<BusinessCategory>(currentBusiness.category);
   const [stampsCount, setStampsCount] = useState(7);
+  const [previewQrUrl, setPreviewQrUrl] = useState<string>('');
+
+  useEffect(() => {
+    QRCode.toDataURL('REPLOYTY:PASS:REP-8831', {
+      width: 120,
+      margin: 1,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    }).then(setPreviewQrUrl).catch(() => {});
+  }, []);
 
   const currentThemePreset = CATEGORY_THEME_PRESETS[activeCategory] || CATEGORY_THEME_PRESETS.cafe;
 
@@ -73,6 +84,7 @@ export const CustomerPreviewView: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<Smartphone size={20} />}
         title="Customer Mobile Experience Preview"
         description="This is what your customers see when scanning your store counter QR code. The Reployty Theme Engine automatically applies category branding tokens."
       />
@@ -253,7 +265,21 @@ export const CustomerPreviewView: React.FC = () => {
                   border: '1px dashed var(--color-border)',
                 }}
               >
-                <QrCode size={48} color="#0F172A" />
+                {previewQrUrl ? (
+                  <img
+                    src={previewQrUrl}
+                    alt="Member Identification QR Pass"
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 4,
+                      display: 'block',
+                      imageRendering: 'pixelated',
+                    }}
+                  />
+                ) : (
+                  <QrCode size={48} color="#0F172A" />
+                )}
                 <div style={{ textAlign: 'left' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, display: 'block' }}>
                     Pass ID: #REP-8831

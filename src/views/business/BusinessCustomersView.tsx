@@ -1647,10 +1647,10 @@ export const BusinessCustomersView: React.FC<{ onNavigate?: (route: any) => void
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Points
+                        {c.loyaltyCards?.[0]?.program?.type === 'STAMP' || (c.stampsBalance > 0 && c.pointsBalance === 0) ? 'Stamps' : 'Points'}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#4F6BFF', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.pointsBalance}
+                      <div style={{ fontSize: 14, fontWeight: 700, color: c.loyaltyCards?.[0]?.program?.type === 'STAMP' || (c.stampsBalance > 0 && c.pointsBalance === 0) ? '#059669' : '#4F6BFF', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.loyaltyCards?.[0]?.program?.type === 'STAMP' || (c.stampsBalance > 0 && c.pointsBalance === 0) ? `${c.stampsBalance} / ${c.loyaltyCards?.[0]?.program?.targetStamps || 10}` : c.pointsBalance}
                       </div>
                     </div>
                     <div style={{ minWidth: 0 }}>
@@ -1819,7 +1819,7 @@ export const BusinessCustomersView: React.FC<{ onNavigate?: (route: any) => void
 
                         {/* Loyalty Balances */}
                         <td style={{ padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', gap: 10 }}>
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                             <span
                               style={{
                                 fontSize: 12,
@@ -1830,7 +1830,9 @@ export const BusinessCustomersView: React.FC<{ onNavigate?: (route: any) => void
                                 borderRadius: 6,
                               }}
                             >
-                              {c.stampsBalance} stamps
+                              {c.loyaltyCards?.[0]?.program?.type === 'STAMP'
+                                ? `${c.stampsBalance} / ${c.loyaltyCards[0].program.targetStamps || 10} stamps`
+                                : `${c.stampsBalance} stamps`}
                             </span>
                             <span
                               style={{

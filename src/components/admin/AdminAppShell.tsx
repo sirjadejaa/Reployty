@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AdminRoute } from '../../types/admin';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
+import { AdminMobileBottomNav } from './AdminMobileBottomNav';
 
 export interface AdminAppShellProps {
   currentRoute: AdminRoute;
@@ -53,6 +54,16 @@ export const AdminAppShell: React.FC<AdminAppShellProps> = ({
           </div>
         </main>
       </div>
+
+      {/* Super Admin Mobile Bottom Navigation (< 640px) */}
+      <AdminMobileBottomNav
+        currentRoute={currentRoute}
+        onRouteChange={(route) => {
+          onRouteChange(route);
+          setIsSidebarOpenMobile(false);
+        }}
+        onOpenMore={() => setIsSidebarOpenMobile(true)}
+      />
     </div>
   );
 };

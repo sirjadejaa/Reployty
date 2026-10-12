@@ -8,23 +8,24 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "start": "tsx src/server/index.ts",
-    "test": "tsx --test --test-concurrency=1 tests/production/*.test.ts tests/staging/*.test.ts tests/e2e/*.test.ts tests/security/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/production/*.test.ts tests/staging/*.test.ts tests/e2e/*.test.ts tests/security/*.test.ts tests/regression/*.test.ts",
     "demo:seed": "tsx prisma/demoSeed.ts",
     "demo:clean": "tsx prisma/demoSeed.ts --clean",
     "demo:reset": "tsx prisma/demoSeed.ts --clean && tsx prisma/demoSeed.ts"
   },
-
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^18.0.1",
     "express": "^5.2.1",
     "ioredis": "^6.0.0",
     "lucide-react": "^1.16.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

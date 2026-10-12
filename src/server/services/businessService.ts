@@ -297,6 +297,7 @@ export async function getBusinessDashboard(ctx: TenantContext) {
     }),
     prisma.loyaltyProgram.findFirst({
       where: { businessId: ctx.businessId, status: 'ACTIVE' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         _count: {
           select: { cards: true },
@@ -304,7 +305,8 @@ export async function getBusinessDashboard(ctx: TenantContext) {
       },
     }),
     prisma.qRCode.findFirst({
-      where: { businessId: ctx.businessId, status: 'ACTIVE', type: 'BUSINESS_STAND' },
+      where: { businessId: ctx.businessId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
       select: {
         code: true,
         destinationUrl: true,
@@ -312,6 +314,28 @@ export async function getBusinessDashboard(ctx: TenantContext) {
       },
     }),
   ]);
+
+  let activeQr = entryQrCode;
+  if (!activeQr && business.slug) {
+    const codeValue = `QR-${business.slug.toUpperCase()}-01`;
+    const created = await prisma.qRCode.upsert({
+      where: { code: codeValue },
+      update: { businessId: business.id, status: 'ACTIVE' },
+      create: {
+        businessId: business.id,
+        code: codeValue,
+        type: 'BUSINESS_STAND',
+        destinationUrl: `/join/${business.slug}`,
+        status: 'ACTIVE',
+      },
+      select: {
+        code: true,
+        destinationUrl: true,
+        scanCount: true,
+      },
+    });
+    activeQr = created;
+  }
 
   // Compute completed onboarding checklist items
   const checklist = {
@@ -340,6 +364,13 @@ export async function getBusinessDashboard(ctx: TenantContext) {
       totalSteps: 6,
       checklist,
     },
+    qrCode: activeQr
+      ? {
+          code: activeQr.code,
+          destinationUrl: activeQr.destinationUrl,
+          scanCount: activeQr.scanCount,
+        }
+      : null,
     loyaltyProgram: activeProgram
       ? {
           id: activeProgram.id,
@@ -351,11 +382,11 @@ export async function getBusinessDashboard(ctx: TenantContext) {
           status: activeProgram.status,
           activeCardsCount: activeProgram._count.cards,
 
-          qrCode: entryQrCode
+          qrCode: activeQr
             ? {
-                code: entryQrCode.code,
-                destinationUrl: entryQrCode.destinationUrl,
-                scanCount: entryQrCode.scanCount,
+                code: activeQr.code,
+                destinationUrl: activeQr.destinationUrl,
+                scanCount: activeQr.scanCount,
               }
             : null,
         }
@@ -1018,4 +1049,44 @@ export async function getBusinessRoles(_ctx: TenantContext) {
       },
     },
   });
+}
+
+/**
+ * Retrieves or auto-provisions the active business QR code for the tenant.
+ */
+export async function getBusinessQrCode(ctx: TenantContext) {
+  let qr = await prisma.qRCode.findFirst({
+    where: { businessId: ctx.businessId, status: 'ACTIVE' },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!qr) {
+    const business = await prisma.business.findUnique({ where: { id: ctx.businessId } });
+    if (business && business.slug) {
+      const codeValue = `QR-${business.slug.toUpperCase()}-01`;
+      qr = await prisma.qRCode.upsert({
+        where: { code: codeValue },
+        update: { businessId: business.id, status: 'ACTIVE' },
+        create: {
+          businessId: business.id,
+          code: codeValue,
+          type: 'BUSINESS_STAND',
+          destinationUrl: `/join/${business.slug}`,
+          status: 'ACTIVE',
+        },
+      });
+    }
+  }
+
+  if (!qr) {
+    throw new Error('QR Code not found for business');
+  }
+
+  return {
+    code: qr.code,
+    destinationUrl: qr.destinationUrl,
+    scanCount: qr.scanCount,
+    status: qr.status,
+    type: qr.type,
+  };
 }

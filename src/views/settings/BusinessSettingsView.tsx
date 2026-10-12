@@ -8,6 +8,7 @@ import {
   Bell,
   ArrowRight,
   Shield,
+  Settings,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -81,6 +82,7 @@ export const BusinessSettingsView: React.FC<BusinessSettingsViewProps> = ({ onNa
   return (
     <PageContainer>
       <PageHeader
+        icon={<Settings size={20} />}
         title="Business Settings"
         description={`Configure workspace rules, team members, locations, and branding for ${currentBusiness.name}.`}
       />

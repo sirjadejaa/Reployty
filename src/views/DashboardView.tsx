@@ -16,6 +16,9 @@ import {
   QrCode,
   Gift,
   Zap,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 import { PageContainer } from '../components/layout/PageContainer';
@@ -23,6 +26,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { StoreQrCodeModal } from '../components/business/StoreQrCodeModal';
 
 import { useTenant } from '../context/TenantContext';
 import { useToast } from '../context/ToastContext';
@@ -40,6 +44,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BusinessDashboardData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [showCompletedSetup, setShowCompletedSetup] = useState(false);
 
   const fetchDashboard = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -99,26 +105,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const completedSteps = onboarding?.completedStepsCount || 0;
   const totalSteps = onboarding?.totalSteps || 6;
   const progressPercent = Math.round((completedSteps / totalSteps) * 100);
+  const activeQr = data?.qrCode || data?.loyaltyProgram?.qrCode;
 
   return (
     <PageContainer>
       {/* 1. Welcome & Business Context Header */}
       <div
+        className="dashboard-header-wrap"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-6)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           {/* Business Logo or Monogram Badge */}
           <div
+            className="dashboard-header-logo"
             style={{
-              width: '56px',
-              height: '56px',
               borderRadius: 'var(--radius-lg)',
               backgroundColor: 'var(--color-primary-subtle)',
               border: '1px solid var(--color-border)',
@@ -143,7 +148,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 }}
               />
             ) : (
-              <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-primary)' }}>
+              <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-primary)' }}>
                 {(business?.name || currentBusiness.name).slice(0, 2).toUpperCase()}
               </span>
             )}
@@ -151,12 +156,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
               <h1
+                className="dashboard-header-title"
                 style={{
-                  fontSize: 'var(--font-size-2xl)',
-                  fontWeight: 700,
-                  color: 'var(--color-text-primary)',
-                  letterSpacing: '-0.02em',
-                  margin: 0,
+                  lineHeight: 1.25,
                 }}
               >
                 {getTimeGreeting()}, {business?.name || currentBusiness.name}
@@ -182,6 +184,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {activeQr && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsQrModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <QrCode size={14} />
+              Store QR Code
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -192,7 +205,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             {refreshing ? 'Updating...' : 'Refresh'}
           </Button>
-          {!onboarding?.isCompleted && (
+          {onboarding?.isCompleted ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCompletedSetup(!showCompletedSetup)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: showCompletedSetup ? 'var(--color-primary)' : '#BBF7D0',
+                backgroundColor: showCompletedSetup ? 'var(--color-primary-subtle)' : '#F0FDF4',
+                color: showCompletedSetup ? 'var(--color-primary)' : '#166534',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle2 size={14} color={showCompletedSetup ? 'var(--color-primary)' : '#16A34A'} />
+              Setup Complete ({completedSteps}/{totalSteps})
+              {showCompletedSetup ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </Button>
+          ) : (
             <Button
               variant="primary"
               size="sm"
@@ -206,51 +239,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 2. Onboarding Setup Checklist Card (if incomplete or recently completed) */}
-      <Card
-        style={{
-          marginBottom: 'var(--space-6)',
-          border: onboarding?.isCompleted ? '1px solid var(--color-border-subtle)' : '1px solid #C7D2FE',
-          backgroundColor: onboarding?.isCompleted ? '#FFFFFF' : '#F5F7FF',
-          padding: 'var(--space-5)',
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
-                {onboarding?.isCompleted ? 'Business Setup Complete' : 'Complete your business setup'}
-              </h2>
-              <span
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '10px',
-                  backgroundColor: onboarding?.isCompleted ? '#DCFCE7' : '#EEF2FF',
-                  color: onboarding?.isCompleted ? '#166534' : '#4F6BFF',
-                }}
-              >
-                {completedSteps} of {totalSteps} steps completed
-              </span>
+      {/* 2. Onboarding Setup Checklist Card (automatically hidden once complete, unless toggled) */}
+      {(!onboarding?.isCompleted || showCompletedSetup) && (
+        <Card
+          style={{
+            marginBottom: 'var(--space-6)',
+            border: onboarding?.isCompleted ? '1px solid var(--color-border-subtle)' : '1px solid #C7D2FE',
+            backgroundColor: onboarding?.isCompleted ? '#FFFFFF' : '#F5F7FF',
+            padding: 'var(--space-5)',
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
+                  {onboarding?.isCompleted ? 'Business Setup Complete' : 'Complete your business setup'}
+                </h2>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    backgroundColor: onboarding?.isCompleted ? '#DCFCE7' : '#EEF2FF',
+                    color: onboarding?.isCompleted ? '#166534' : '#4F6BFF',
+                  }}
+                >
+                  {completedSteps} of {totalSteps} steps completed
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                {onboarding?.isCompleted
+                  ? 'Your core business profile, branch, and team settings are configured.'
+                  : 'Follow the essential steps to prepare your Reployty retention workspace for customers.'}
+              </p>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
-              {onboarding?.isCompleted
-                ? 'Your core business profile, branch, and team settings are configured.'
-                : 'Follow the essential steps to prepare your Reployty retention workspace for customers.'}
-            </p>
-          </div>
 
-          <Button
-            variant={onboarding?.isCompleted ? 'secondary' : 'primary'}
-            size="sm"
-            onClick={() => onNavigate('onboarding')}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            {onboarding?.isCompleted ? 'Review Setup' : 'Continue Setup'}
-            <ArrowRight size={14} />
-          </Button>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Button
+                variant={onboarding?.isCompleted ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={() => onNavigate('onboarding')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {onboarding?.isCompleted ? 'Review Setup' : 'Continue Setup'}
+                <ArrowRight size={14} />
+              </Button>
+              {onboarding?.isCompleted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCompletedSetup(false)}
+                  title="Hide this section"
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-text-muted)', fontSize: '12px' }}
+                >
+                  <X size={14} />
+                  Hide
+                </Button>
+              )}
+            </div>
+          </div>
 
         {/* Progress Bar */}
         <div
@@ -402,6 +450,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         </div>
       </Card>
+      )}
 
       {/* 3. Real PostgreSQL KPI Area */}
       <div
@@ -683,13 +732,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </p>
             </div>
             <Button
-              variant="outline"
+              variant="primary"
               size="sm"
-              onClick={() => onNavigate('customer-preview')}
+              onClick={() => setIsQrModalOpen(true)}
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <QrCode size={14} />
-              Preview Customer Pass
+              Get Store QR Code
             </Button>
           </div>
 
@@ -1062,7 +1111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   </div>
                 </div>
 
-                {data.loyaltyProgram.qrCode && (
+                {activeQr && (
                   <div
                     style={{
                       display: 'flex',
@@ -1078,11 +1127,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-primary)' }}>
                       <QrCode size={14} />
-                      <span>Standee QR: <strong>{data.loyaltyProgram.qrCode.destinationUrl}</strong></span>
+                      <span>Standee QR: <strong>{activeQr.destinationUrl}</strong></span>
                     </div>
-                    <span style={{ color: 'var(--color-text-muted)' }}>
-                      {data.loyaltyProgram.qrCode.scanCount} scans
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: 'var(--color-text-muted)' }}>
+                        {activeQr.scanCount} scans
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsQrModalOpen(true)}
+                        style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+                      >
+                        View QR
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -1173,6 +1232,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           )}
         </Card>
       </div>
+
+      {isQrModalOpen && activeQr && (
+        <StoreQrCodeModal
+          isOpen={isQrModalOpen}
+          onClose={() => setIsQrModalOpen(false)}
+          businessName={business?.name || currentBusiness.name}
+          businessSlug={business?.slug || currentBusiness.slug}
+          businessLogo={business?.logo || currentBusiness.logo}
+          qrCode={activeQr}
+        />
+      )}
     </PageContainer>
   );
 };

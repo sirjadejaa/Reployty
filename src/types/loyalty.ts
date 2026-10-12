@@ -40,6 +40,7 @@ export type AdminRoute =
   | 'customers'
   | 'business-customers'
   | 'loyalty'
+  | 'terminal'
   | 'rewards'
   | 'offers'
   | 'menu'

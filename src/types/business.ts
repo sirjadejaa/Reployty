@@ -139,6 +139,11 @@ export interface BusinessDashboardData {
     loyaltyPrograms: number;
   };
   onboarding: OnboardingStatus;
+  qrCode?: {
+    code: string;
+    destinationUrl: string;
+    scanCount: number;
+  } | null;
   loyaltyProgram?: {
     id: string;
     name: string;

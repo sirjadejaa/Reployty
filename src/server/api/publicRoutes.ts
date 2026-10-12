@@ -4,6 +4,8 @@ import {
   submitClientOnboarding,
   verifyInvitationToken,
   completeInvitationSetup,
+  trackApplicationPublic,
+  submitApplicantAdditionalInfo,
 } from '../services/managedProvisioningService';
 
 export const publicRouter = Router();
@@ -34,15 +36,85 @@ publicRouter.post('/onboarding-requests', async (req: Request, res: Response): P
 
   try {
     const result = await submitClientOnboarding(req.body, { ipAddress: ip });
-    // Section 12 requirement: Return professional confirmation, do not expose internal IDs/secrets
     res.status(201).json({
       success: true,
       message: result.message,
+      applicationNumber: result.applicationNumber,
+      requestId: result.requestId,
+      status: result.status,
     });
   } catch (err: any) {
     res.status(400).json({
       error: err.message || 'Failed to submit onboarding request',
       code: 'VALIDATION_ERROR',
+    });
+  }
+});
+
+// ============================================================================
+// 1B. POST /api/public/applications/track
+// Public Application Tracking by Reference Number & Email
+// ============================================================================
+publicRouter.post('/applications/track', async (req: Request, res: Response): Promise<void> => {
+  const { applicationNumber, email } = req.body;
+
+  if (!applicationNumber || typeof applicationNumber !== 'string') {
+    res.status(400).json({ error: 'Application reference number is required', code: 'MISSING_REF' });
+    return;
+  }
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ error: 'Applicant email address is required', code: 'MISSING_EMAIL' });
+    return;
+  }
+
+  try {
+    const application = await trackApplicationPublic(applicationNumber, email);
+    res.json({
+      success: true,
+      application,
+    });
+  } catch (err: any) {
+    const status = err.status || 404;
+    res.status(status).json({
+      error: err.message || 'Failed to find application',
+      code: err.code || 'NOT_FOUND',
+    });
+  }
+});
+
+// ============================================================================
+// 1C. PATCH /api/public/applications/:id/additional-info
+// Submit Additional Information (Verified by Reference & Email)
+// ============================================================================
+publicRouter.patch('/applications/:id/additional-info', async (req: Request, res: Response): Promise<void> => {
+  const { applicationNumber, email, responseText, ...updatedFields } = req.body;
+
+  if (!responseText || typeof responseText !== 'string' || !responseText.trim()) {
+    res.status(400).json({ error: 'Please provide the requested information in detail', code: 'BAD_REQUEST' });
+    return;
+  }
+
+  try {
+    const updated = await submitApplicantAdditionalInfo(
+      String(req.params.id),
+      {
+        applicationNumber: typeof applicationNumber === 'string' ? applicationNumber.trim().toUpperCase() : undefined,
+        email: typeof email === 'string' ? email.trim().toLowerCase() : undefined,
+      },
+      responseText.trim(),
+      updatedFields
+    );
+
+    res.json({
+      success: true,
+      application: updated,
+      message: 'Additional information successfully submitted. Application status updated to SUBMITTED.',
+    });
+  } catch (err: any) {
+    const status = err.status || 400;
+    res.status(status).json({
+      error: err.message || 'Failed to submit additional information',
+      code: err.code || 'MUTATION_ERROR',
     });
   }
 });

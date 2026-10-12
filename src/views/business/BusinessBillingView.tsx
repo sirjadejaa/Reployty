@@ -355,6 +355,7 @@ export const BusinessBillingView: React.FC<BusinessBillingViewProps> = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<CreditCard size={20} />}
         title="Billing & Subscriptions"
         description="Manage your subscription plan, feature entitlements, billing intervals, and invoices."
       />

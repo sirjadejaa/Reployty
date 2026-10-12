@@ -60,13 +60,87 @@ export interface OnboardingPaginationParams {
   search?: string;
 }
 
+export interface StatusHistoryEntry {
+  status: OnboardingRequestStatus;
+  timestamp: string;
+  actorUserId?: string | null;
+  actorRole: 'APPLICANT' | 'SUPER_ADMIN' | 'SYSTEM';
+  actorName?: string | null;
+  actionTitle: string;
+  notes?: string | null;
+  message?: string | null;
+}
+
+export const ALLOWED_ADMIN_TRANSITIONS: Record<string, OnboardingRequestStatus[]> = {
+  DRAFT: [OnboardingRequestStatus.CANCELLED],
+  SUBMITTED: [
+    OnboardingRequestStatus.UNDER_REVIEW,
+    OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED,
+    OnboardingRequestStatus.APPROVED,
+    OnboardingRequestStatus.REJECTED,
+    OnboardingRequestStatus.CANCELLED,
+  ],
+  PENDING: [
+    OnboardingRequestStatus.UNDER_REVIEW,
+    OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED,
+    OnboardingRequestStatus.APPROVED,
+    OnboardingRequestStatus.REJECTED,
+    OnboardingRequestStatus.CANCELLED,
+  ],
+  UNDER_REVIEW: [
+    OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED,
+    OnboardingRequestStatus.APPROVED,
+    OnboardingRequestStatus.REJECTED,
+    OnboardingRequestStatus.CANCELLED,
+  ],
+  ADDITIONAL_INFO_REQUIRED: [
+    OnboardingRequestStatus.UNDER_REVIEW,
+    OnboardingRequestStatus.APPROVED,
+    OnboardingRequestStatus.REJECTED,
+    OnboardingRequestStatus.CANCELLED,
+  ],
+  APPROVED: [
+    OnboardingRequestStatus.PROVISIONED,
+    OnboardingRequestStatus.REJECTED,
+  ],
+  REJECTED: [
+    OnboardingRequestStatus.UNDER_REVIEW,
+  ],
+  CANCELLED: [],
+  PROVISIONED: [],
+};
+
+export const ALLOWED_APPLICANT_TRANSITIONS: Record<string, OnboardingRequestStatus[]> = {
+  DRAFT: [OnboardingRequestStatus.SUBMITTED, OnboardingRequestStatus.CANCELLED],
+  SUBMITTED: [OnboardingRequestStatus.CANCELLED],
+  PENDING: [OnboardingRequestStatus.CANCELLED],
+  UNDER_REVIEW: [OnboardingRequestStatus.CANCELLED],
+  ADDITIONAL_INFO_REQUIRED: [OnboardingRequestStatus.SUBMITTED, OnboardingRequestStatus.CANCELLED],
+  APPROVED: [],
+  REJECTED: [],
+  CANCELLED: [],
+  PROVISIONED: [],
+};
+
+export async function generateUniqueApplicationNumber(): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const randomNum = Math.floor(10000 + Math.random() * 90000);
+    const candidate = `APP-${randomNum}`;
+    const exists = await prisma.businessOnboardingRequest.findUnique({
+      where: { applicationNumber: candidate },
+    });
+    if (!exists) return candidate;
+  }
+  return `APP-${Date.now().toString().slice(-6)}`;
+}
+
 // ============================================================================
-// 1. PUBLIC CLIENT ONBOARDING SUBMISSION
+// 1. PUBLIC CLIENT ONBOARDING SUBMISSION & DRAFT MANAGEMENT
 // ============================================================================
 
 export async function submitClientOnboarding(
-  input: ClientOnboardingInput,
-  meta?: { ipAddress?: string; userAgent?: string }
+  input: ClientOnboardingInput & { applicantUserId?: string },
+  meta?: { ipAddress?: string; userAgent?: string; userId?: string }
 ) {
   // 1. Validate required fields
   if (!input.businessName || typeof input.businessName !== 'string' || input.businessName.trim().length < 2) {
@@ -111,10 +185,25 @@ export async function submitClientOnboarding(
   const cleanPhone = input.ownerPhone.trim();
   const cleanName = input.businessName.trim();
   const cleanOwnerName = input.ownerName.trim();
+  const appNumber = await generateUniqueApplicationNumber();
+  const applicantUserId = input.applicantUserId || meta?.userId || null;
+  const now = new Date();
 
-  // Create Onboarding Request record in PENDING state
+  const initialHistoryEntry: StatusHistoryEntry = {
+    status: OnboardingRequestStatus.PENDING,
+    timestamp: now.toISOString(),
+    actorUserId: applicantUserId,
+    actorRole: 'APPLICANT',
+    actorName: cleanOwnerName,
+    actionTitle: 'Application Submitted',
+    notes: 'Application received and queued for review.',
+  };
+
+  // Create Onboarding Request record in PENDING state (preserves existing system convention)
   const request = await prisma.businessOnboardingRequest.create({
     data: {
+      applicationNumber: appNumber,
+      applicantUserId,
       businessName: cleanName,
       businessCategory: cleanCategory,
       businessDescription: (input.businessDescription || input.description)?.trim() || null,
@@ -133,16 +222,18 @@ export async function submitClientOnboarding(
       primaryColor: input.primaryColor?.trim() || '#4F6BFF',
       themePreset: input.themePreset?.trim() || 'modern',
       status: OnboardingRequestStatus.PENDING,
+      submittedAt: now,
+      statusHistory: [initialHistoryEntry as any],
     },
   });
 
-
   // Record audit log
   await createSystemAuditLog({
-    action: 'CLIENT_ONBOARDING_SUBMITTED',
+    action: 'APPLICATION_SUBMITTED',
     entityType: 'BusinessOnboardingRequest',
     entityId: request.id,
     newState: {
+      applicationNumber: request.applicationNumber,
       businessName: request.businessName,
       ownerEmail: request.ownerEmail,
       status: request.status,
@@ -151,15 +242,424 @@ export async function submitClientOnboarding(
     userAgent: meta?.userAgent,
   });
 
-  // Return public-safe confirmation response (never expose internal secrets or DB details)
   return {
     success: true,
     requestId: request.id,
+    applicationNumber: request.applicationNumber!,
     businessName: request.businessName,
     status: request.status,
     message: 'Thanks — your Reployty setup request has been received. Our team will review your information and prepare your business workspace.',
     createdAt: request.createdAt.toISOString(),
   };
+}
+
+export async function saveDraftApplication(
+  userId: string,
+  input: Partial<ClientOnboardingInput> & { id?: string },
+  meta?: { ipAddress?: string; userAgent?: string }
+) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new ProvisioningError('User not found', 'USER_NOT_FOUND', 404);
+  }
+
+  // Update existing draft
+  if (input.id) {
+    const existing = await prisma.businessOnboardingRequest.findUnique({ where: { id: input.id } });
+    if (!existing) {
+      throw new ProvisioningError('Draft application not found', 'NOT_FOUND', 404);
+    }
+    if (existing.applicantUserId !== userId && existing.ownerEmail !== user.email) {
+      throw new ProvisioningError('You do not have permission to modify this application', 'FORBIDDEN', 403);
+    }
+    if (existing.status !== OnboardingRequestStatus.DRAFT) {
+      throw new ProvisioningError('Only draft applications can be edited via draft save', 'NOT_DRAFT', 400);
+    }
+
+    const updated = await prisma.businessOnboardingRequest.update({
+      where: { id: input.id },
+      data: {
+        businessName: input.businessName?.trim() || existing.businessName,
+        businessCategory: input.businessCategory || existing.businessCategory,
+        businessDescription: input.businessDescription !== undefined ? input.businessDescription?.trim() || null : existing.businessDescription,
+        ownerName: input.ownerName?.trim() || existing.ownerName,
+        ownerEmail: input.ownerEmail?.trim().toLowerCase() || existing.ownerEmail,
+        ownerPhone: input.ownerPhone?.trim() || existing.ownerPhone,
+        country: input.country?.trim() || existing.country,
+        city: input.city?.trim() || existing.city,
+        address: input.address?.trim() || existing.address,
+        state: input.state !== undefined ? input.state?.trim() || null : existing.state,
+        postalCode: input.postalCode !== undefined ? input.postalCode?.trim() || null : existing.postalCode,
+        website: input.website !== undefined ? input.website?.trim() || null : existing.website,
+        businessPhone: input.businessPhone !== undefined ? input.businessPhone?.trim() || null : existing.businessPhone,
+        estimatedBranches: input.estimatedBranches ? Math.max(1, Number(input.estimatedBranches)) : existing.estimatedBranches,
+        primaryColor: input.primaryColor || existing.primaryColor,
+        themePreset: input.themePreset || existing.themePreset,
+      },
+    });
+
+    return updated;
+  }
+
+  // Create new draft
+  const appNumber = await generateUniqueApplicationNumber();
+  const now = new Date();
+  const historyEntry: StatusHistoryEntry = {
+    status: OnboardingRequestStatus.DRAFT,
+    timestamp: now.toISOString(),
+    actorUserId: userId,
+    actorRole: 'APPLICANT',
+    actorName: user.name,
+    actionTitle: 'Application Draft Saved',
+    notes: 'Draft started by applicant.',
+  };
+
+  const draft = await prisma.businessOnboardingRequest.create({
+    data: {
+      applicationNumber: appNumber,
+      applicantUserId: userId,
+      businessName: input.businessName?.trim() || 'Untitled Business',
+      businessCategory: input.businessCategory || BusinessCategory.CAFE,
+      businessDescription: input.businessDescription?.trim() || null,
+      ownerName: input.ownerName?.trim() || user.name,
+      ownerEmail: input.ownerEmail?.trim().toLowerCase() || user.email,
+      ownerPhone: input.ownerPhone?.trim() || user.phone || '',
+      country: input.country?.trim() || 'IN',
+      city: input.city?.trim() || '',
+      address: input.address?.trim() || '',
+      state: input.state?.trim() || null,
+      postalCode: input.postalCode?.trim() || null,
+      website: input.website?.trim() || null,
+      businessPhone: input.businessPhone?.trim() || null,
+      estimatedBranches: input.estimatedBranches ? Math.max(1, Number(input.estimatedBranches)) : 1,
+      primaryColor: input.primaryColor || '#4F6BFF',
+      themePreset: input.themePreset || 'modern',
+      status: OnboardingRequestStatus.DRAFT,
+      statusHistory: [historyEntry as any],
+    },
+  });
+
+  await createSystemAuditLog({
+    action: 'APPLICATION_DRAFT_SAVED',
+    entityType: 'BusinessOnboardingRequest',
+    entityId: draft.id,
+    newState: {
+      applicationNumber: draft.applicationNumber,
+      businessName: draft.businessName,
+      status: draft.status,
+    },
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+
+  return draft;
+}
+
+export async function submitDraftApplication(
+  id: string,
+  userId: string,
+  input?: Partial<ClientOnboardingInput>
+) {
+  const existing = await prisma.businessOnboardingRequest.findUnique({ where: { id } });
+  if (!existing) {
+    throw new ProvisioningError('Application not found', 'NOT_FOUND', 404);
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (existing.applicantUserId !== userId && existing.ownerEmail !== user?.email) {
+    throw new ProvisioningError('Unauthorized to submit this application', 'FORBIDDEN', 403);
+  }
+  if (existing.status !== OnboardingRequestStatus.DRAFT) {
+    throw new ProvisioningError(`Application cannot be submitted from status '${existing.status}'`, 'INVALID_STATUS', 400);
+  }
+
+  const bizName = input?.businessName?.trim() || existing.businessName;
+  const ownerName = input?.ownerName?.trim() || existing.ownerName;
+  const ownerEmail = input?.ownerEmail?.trim().toLowerCase() || existing.ownerEmail;
+  const ownerPhone = input?.ownerPhone?.trim() || existing.ownerPhone;
+  const city = input?.city?.trim() || existing.city;
+  const address = input?.address?.trim() || existing.address;
+
+  if (!bizName || bizName.length < 2) throw new ProvisioningError('Business name is required', 'INVALID_BUSINESS_NAME', 400);
+  if (!ownerName || ownerName.length < 2) throw new ProvisioningError('Owner name is required', 'INVALID_OWNER_NAME', 400);
+  if (!ownerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) throw new ProvisioningError('Valid owner email is required', 'INVALID_EMAIL', 400);
+  if (!ownerPhone || ownerPhone.length < 7) throw new ProvisioningError('Valid phone number is required', 'INVALID_PHONE', 400);
+  if (!city) throw new ProvisioningError('City is required', 'INVALID_CITY', 400);
+  if (!address) throw new ProvisioningError('Address is required', 'INVALID_ADDRESS', 400);
+
+  const now = new Date();
+  const currentHistory = Array.isArray(existing.statusHistory) ? (existing.statusHistory as any[]) : [];
+  const nextHistory: StatusHistoryEntry[] = [
+    ...currentHistory,
+    {
+      status: OnboardingRequestStatus.SUBMITTED,
+      timestamp: now.toISOString(),
+      actorUserId: userId,
+      actorRole: 'APPLICANT',
+      actorName: ownerName,
+      actionTitle: 'Application Submitted',
+      notes: 'Draft finalized and submitted for review.',
+    },
+  ];
+
+  const updated = await prisma.businessOnboardingRequest.update({
+    where: { id },
+    data: {
+      businessName: bizName,
+      ownerName,
+      ownerEmail,
+      ownerPhone,
+      city,
+      address,
+      status: OnboardingRequestStatus.SUBMITTED,
+      submittedAt: now,
+      statusHistory: nextHistory as any,
+    },
+  });
+
+  await createSystemAuditLog({
+    action: 'APPLICATION_SUBMITTED',
+    entityType: 'BusinessOnboardingRequest',
+    entityId: id,
+    actorUserId: userId,
+    newState: { status: updated.status, applicationNumber: updated.applicationNumber },
+  });
+
+  return updated;
+}
+
+export async function submitApplicantAdditionalInfo(
+  id: string,
+  authContext: { userId?: string; email?: string; applicationNumber?: string },
+  responseText: string,
+  updatedFields?: Partial<ClientOnboardingInput>
+) {
+  if (!responseText || typeof responseText !== 'string' || responseText.trim().length < 2) {
+    throw new ProvisioningError('Please provide the requested information in detail', 'INVALID_INPUT', 400);
+  }
+
+  const existing = await prisma.businessOnboardingRequest.findUnique({ where: { id } });
+  if (!existing) {
+    throw new ProvisioningError('Application not found', 'NOT_FOUND', 404);
+  }
+
+  const isOwner =
+    (authContext.userId && existing.applicantUserId === authContext.userId) ||
+    (authContext.email && existing.ownerEmail.toLowerCase() === authContext.email.toLowerCase()) ||
+    (authContext.applicationNumber && existing.applicationNumber === authContext.applicationNumber);
+
+  if (!isOwner) {
+    throw new ProvisioningError('Unauthorized to update this application', 'FORBIDDEN', 403);
+  }
+
+  if (existing.status !== OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED) {
+    throw new ProvisioningError(
+      `Cannot submit additional information when application status is '${existing.status}'`,
+      'INVALID_STATUS',
+      400
+    );
+  }
+
+  const now = new Date();
+  const currentHistory = Array.isArray(existing.statusHistory) ? (existing.statusHistory as any[]) : [];
+  const nextHistory: StatusHistoryEntry[] = [
+    ...currentHistory,
+    {
+      status: OnboardingRequestStatus.SUBMITTED,
+      timestamp: now.toISOString(),
+      actorUserId: authContext.userId || null,
+      actorRole: 'APPLICANT',
+      actorName: existing.ownerName,
+      actionTitle: 'Additional Information Provided',
+      message: responseText.trim(),
+      notes: 'Applicant responded with requested details.',
+    },
+  ];
+
+  const updated = await prisma.businessOnboardingRequest.update({
+    where: { id },
+    data: {
+      status: OnboardingRequestStatus.SUBMITTED,
+      additionalInfoSubmitted: responseText.trim(),
+      additionalInfoSubmittedAt: now,
+      statusHistory: nextHistory as any,
+      ...(updatedFields?.website ? { website: updatedFields.website.trim() } : {}),
+      ...(updatedFields?.businessPhone ? { businessPhone: updatedFields.businessPhone.trim() } : {}),
+      ...(updatedFields?.address ? { address: updatedFields.address.trim() } : {}),
+      ...(updatedFields?.city ? { city: updatedFields.city.trim() } : {}),
+    },
+  });
+
+  await createSystemAuditLog({
+    action: 'APPLICATION_ADDITIONAL_INFO_SUBMITTED',
+    entityType: 'BusinessOnboardingRequest',
+    entityId: id,
+    actorUserId: authContext.userId || undefined,
+    newState: {
+      status: updated.status,
+      additionalInfoSubmitted: updated.additionalInfoSubmitted,
+    },
+  });
+
+  return updated;
+}
+
+export async function cancelApplication(
+  id: string,
+  authContext: { userId?: string; email?: string; isSuperAdmin?: boolean },
+  reason?: string
+) {
+  const existing = await prisma.businessOnboardingRequest.findUnique({ where: { id } });
+  if (!existing) {
+    throw new ProvisioningError('Application not found', 'NOT_FOUND', 404);
+  }
+
+  const isApplicantOwner =
+    (authContext.userId && existing.applicantUserId === authContext.userId) ||
+    (authContext.email && existing.ownerEmail.toLowerCase() === authContext.email.toLowerCase());
+
+  if (!isApplicantOwner && !authContext.isSuperAdmin) {
+    throw new ProvisioningError('Unauthorized to cancel this application', 'FORBIDDEN', 403);
+  }
+
+  if (existing.status === OnboardingRequestStatus.PROVISIONED) {
+    throw new ProvisioningError('Cannot cancel an already provisioned business workspace', 'ALREADY_PROVISIONED', 400);
+  }
+  if (existing.status === OnboardingRequestStatus.CANCELLED) {
+    throw new ProvisioningError('Application is already cancelled', 'ALREADY_CANCELLED', 400);
+  }
+
+  const now = new Date();
+  const currentHistory = Array.isArray(existing.statusHistory) ? (existing.statusHistory as any[]) : [];
+  const nextHistory: StatusHistoryEntry[] = [
+    ...currentHistory,
+    {
+      status: OnboardingRequestStatus.CANCELLED,
+      timestamp: now.toISOString(),
+      actorUserId: authContext.userId || null,
+      actorRole: authContext.isSuperAdmin ? 'SUPER_ADMIN' : 'APPLICANT',
+      actorName: authContext.isSuperAdmin ? 'Super Admin' : existing.ownerName,
+      actionTitle: 'Application Cancelled',
+      notes: reason || 'Application withdrawn.',
+    },
+  ];
+
+  const updated = await prisma.businessOnboardingRequest.update({
+    where: { id },
+    data: {
+      status: OnboardingRequestStatus.CANCELLED,
+      statusHistory: nextHistory as any,
+    },
+  });
+
+  await createSystemAuditLog({
+    action: 'APPLICATION_CANCELLED',
+    entityType: 'BusinessOnboardingRequest',
+    entityId: id,
+    actorUserId: authContext.userId || undefined,
+    previousState: { status: existing.status },
+    newState: { status: OnboardingRequestStatus.CANCELLED, reason },
+  });
+
+  return updated;
+}
+
+export async function trackApplicationPublic(applicationNumber: string, email: string) {
+  if (!applicationNumber || !email) {
+    throw new ProvisioningError('Application number and email are required', 'MISSING_INPUT', 400);
+  }
+
+  const cleanAppNum = applicationNumber.trim().toUpperCase().replace(/^#/, '');
+  const cleanEmail = email.trim().toLowerCase();
+
+  const req = await prisma.businessOnboardingRequest.findFirst({
+    where: {
+      applicationNumber: cleanAppNum,
+      ownerEmail: cleanEmail,
+    },
+    include: {
+      provisionedBusiness: {
+        select: { id: true, name: true, slug: true, status: true },
+      },
+    },
+  });
+
+  if (!req) {
+    throw new ProvisioningError('No application found with the provided reference number and email', 'NOT_FOUND', 404);
+  }
+
+  return {
+    id: req.id,
+    applicationNumber: req.applicationNumber,
+    businessName: req.businessName,
+    businessCategory: req.businessCategory,
+    status: req.status,
+    submittedAt: req.submittedAt?.toISOString() || req.createdAt.toISOString(),
+    updatedAt: req.updatedAt.toISOString(),
+    additionalInfoRequested: req.additionalInfoRequested,
+    additionalInfoSubmitted: req.additionalInfoSubmitted,
+    additionalInfoSubmittedAt: req.additionalInfoSubmittedAt?.toISOString() || null,
+    rejectionReason: req.rejectionReason,
+    notes: req.notes,
+    statusHistory: Array.isArray(req.statusHistory) ? req.statusHistory : [],
+    provisionedBusiness: req.provisionedBusiness,
+    ownerName: req.ownerName,
+    ownerEmail: req.ownerEmail,
+    city: req.city,
+    country: req.country,
+  };
+}
+
+export async function getApplicantApplicationById(
+  id: string,
+  auth: { userId: string; email: string; isSuperAdmin?: boolean }
+) {
+  const req = await prisma.businessOnboardingRequest.findUnique({
+    where: { id },
+    include: {
+      provisionedBusiness: {
+        select: { id: true, name: true, slug: true, status: true },
+      },
+    },
+  });
+
+  if (!req) {
+    throw new ProvisioningError('Application not found', 'NOT_FOUND', 404);
+  }
+
+  const isOwner =
+    req.applicantUserId === auth.userId ||
+    req.ownerEmail.toLowerCase() === auth.email.toLowerCase();
+
+  if (!isOwner && !auth.isSuperAdmin) {
+    throw new ProvisioningError('Unauthorized to view this application', 'FORBIDDEN', 403);
+  }
+
+  return {
+    ...req,
+    statusHistory: Array.isArray(req.statusHistory) ? req.statusHistory : [],
+  };
+}
+
+export async function getApplicantApplications(userId: string, email: string) {
+  const reqs = await prisma.businessOnboardingRequest.findMany({
+    where: {
+      OR: [
+        { applicantUserId: userId },
+        { ownerEmail: email.toLowerCase() },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      provisionedBusiness: {
+        select: { id: true, name: true, slug: true, status: true },
+      },
+    },
+  });
+
+  return reqs.map((r) => ({
+    ...r,
+    statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory : [],
+  }));
 }
 
 // ============================================================================
@@ -174,51 +674,82 @@ export async function listOnboardingRequests(params: OnboardingPaginationParams)
   const where: any = {};
 
   if (params.status && params.status !== 'ALL') {
-    where.status = params.status as OnboardingRequestStatus;
+    if (params.status === 'SUBMITTED') {
+      where.OR = [
+        { status: OnboardingRequestStatus.SUBMITTED },
+        { status: OnboardingRequestStatus.PENDING },
+      ];
+    } else {
+      where.status = params.status as OnboardingRequestStatus;
+    }
   }
 
   if (params.search && params.search.trim()) {
     const term = params.search.trim();
-    where.OR = [
+    const searchConditions: any[] = [
       { businessName: { contains: term, mode: 'insensitive' } },
       { ownerName: { contains: term, mode: 'insensitive' } },
       { ownerEmail: { contains: term, mode: 'insensitive' } },
       { city: { contains: term, mode: 'insensitive' } },
+      { applicationNumber: { contains: term, mode: 'insensitive' } },
     ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchConditions }];
+      delete where.OR;
+    } else {
+      where.OR = searchConditions;
+    }
   }
 
-  const [items, total, pendingCount, underReviewCount, approvedCount, rejectedCount, provisionedCount] =
-    await Promise.all([
-      prisma.businessOnboardingRequest.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          reviewedBy: {
-            select: { id: true, name: true, email: true },
-          },
-          provisionedBusiness: {
-            select: { id: true, name: true, slug: true, status: true },
-          },
-          invitations: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { id: true, expiresAt: true, usedAt: true, sentAt: true },
-          },
+  const [
+    items,
+    total,
+    draftCount,
+    submittedCount,
+    pendingCount,
+    underReviewCount,
+    additionalInfoCount,
+    approvedCount,
+    rejectedCount,
+    cancelledCount,
+    provisionedCount,
+  ] = await Promise.all([
+    prisma.businessOnboardingRequest.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        reviewedBy: {
+          select: { id: true, name: true, email: true },
         },
-      }),
-      prisma.businessOnboardingRequest.count({ where }),
-      prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.PENDING } }),
-      prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.UNDER_REVIEW } }),
-      prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.APPROVED } }),
-      prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.REJECTED } }),
-      prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.PROVISIONED } }),
-    ]);
+        provisionedBusiness: {
+          select: { id: true, name: true, slug: true, status: true },
+        },
+        invitations: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, expiresAt: true, usedAt: true, sentAt: true },
+        },
+      },
+    }),
+    prisma.businessOnboardingRequest.count({ where }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.DRAFT } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.SUBMITTED } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.PENDING } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.UNDER_REVIEW } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.APPROVED } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.REJECTED } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.CANCELLED } }),
+    prisma.businessOnboardingRequest.count({ where: { status: OnboardingRequestStatus.PROVISIONED } }),
+  ]);
 
   return {
     items: items.map((r) => ({
       id: r.id,
+      applicationNumber: r.applicationNumber,
+      applicantUserId: r.applicantUserId,
       businessName: r.businessName,
       businessCategory: r.businessCategory,
       businessDescription: r.businessDescription,
@@ -236,6 +767,10 @@ export async function listOnboardingRequests(params: OnboardingPaginationParams)
       status: r.status,
       notes: r.notes,
       rejectionReason: r.rejectionReason,
+      additionalInfoRequested: r.additionalInfoRequested,
+      additionalInfoSubmitted: r.additionalInfoSubmitted,
+      additionalInfoSubmittedAt: r.additionalInfoSubmittedAt?.toISOString() || null,
+      statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory : [],
       reviewedAt: r.reviewedAt?.toISOString() || null,
       reviewedBy: r.reviewedBy ? { id: r.reviewedBy.id, name: r.reviewedBy.name, email: r.reviewedBy.email } : null,
       provisionedAt: r.provisionedAt?.toISOString() || null,
@@ -248,7 +783,9 @@ export async function listOnboardingRequests(params: OnboardingPaginationParams)
             isExpired: r.invitations[0].expiresAt < new Date(),
           }
         : null,
+      submittedAt: r.submittedAt?.toISOString() || r.createdAt.toISOString(),
       createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
     })),
     pagination: {
       page,
@@ -258,10 +795,13 @@ export async function listOnboardingRequests(params: OnboardingPaginationParams)
     },
     counts: {
       total,
-      pending: pendingCount,
+      draft: draftCount,
+      submitted: submittedCount + pendingCount,
       underReview: underReviewCount,
+      additionalInfoRequired: additionalInfoCount,
       approved: approvedCount,
       rejected: rejectedCount,
+      cancelled: cancelledCount,
       provisioned: provisionedCount,
     },
   };
@@ -310,6 +850,7 @@ export async function getOnboardingRequestById(id: string) {
 
   return {
     ...r,
+    statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory : [],
     existingOwnerUser,
     potentialDuplicateBiz,
   };
@@ -319,7 +860,7 @@ export async function updateOnboardingRequestStatus(
   ctx: TenantContext,
   id: string,
   newStatus: OnboardingRequestStatus,
-  options?: { notes?: string; rejectionReason?: string }
+  options?: { notes?: string; rejectionReason?: string; additionalInfoRequested?: string }
 ) {
   if (!ctx.isSuperAdmin) {
     throw new ProvisioningError('Super Admin authorization required', 'UNAUTHORIZED', 403);
@@ -334,24 +875,90 @@ export async function updateOnboardingRequestStatus(
     throw new ProvisioningError('Cannot modify status of an already provisioned request', 'ALREADY_PROVISIONED', 400);
   }
 
+  // Check valid transition
+  const allowed = ALLOWED_ADMIN_TRANSITIONS[existing.status] || [];
+  if (!allowed.includes(newStatus)) {
+    throw new ProvisioningError(
+      `Invalid status transition from '${existing.status}' to '${newStatus}'. Allowed transitions: ${allowed.join(', ') || 'none'}`,
+      'INVALID_STATUS_TRANSITION',
+      400
+    );
+  }
+
+  if (newStatus === OnboardingRequestStatus.REJECTED && !options?.rejectionReason?.trim()) {
+    throw new ProvisioningError('An explanation is required when declining an application', 'REASON_REQUIRED', 400);
+  }
+
+  if (newStatus === OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED && !options?.additionalInfoRequested?.trim() && !options?.notes?.trim()) {
+    throw new ProvisioningError('Please specify what additional information is required from the applicant', 'INFO_REQUEST_REQUIRED', 400);
+  }
+
+  const now = new Date();
+  const currentHistory = Array.isArray(existing.statusHistory) ? (existing.statusHistory as any[]) : [];
+  const actionTitleMap: Record<OnboardingRequestStatus, string> = {
+    DRAFT: 'Application Drafted',
+    SUBMITTED: 'Application Submitted',
+    PENDING: 'Application Received',
+    UNDER_REVIEW: 'Under Review',
+    ADDITIONAL_INFO_REQUIRED: 'Additional Information Requested',
+    APPROVED: 'Application Approved',
+    REJECTED: 'Application Declined',
+    CANCELLED: 'Application Cancelled',
+    PROVISIONED: 'Workspace Provisioned & Active',
+  };
+
+  const message =
+    newStatus === OnboardingRequestStatus.REJECTED
+      ? options?.rejectionReason
+      : newStatus === OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED
+      ? options?.additionalInfoRequested || options?.notes
+      : options?.notes;
+
+  const nextHistory: StatusHistoryEntry[] = [
+    ...currentHistory,
+    {
+      status: newStatus,
+      timestamp: now.toISOString(),
+      actorUserId: ctx.user.id,
+      actorRole: 'SUPER_ADMIN',
+      actorName: ctx.user.name,
+      actionTitle: actionTitleMap[newStatus] || `Status Changed to ${newStatus}`,
+      notes: options?.notes || null,
+      message: message || null,
+    },
+  ];
+
   const updated = await prisma.businessOnboardingRequest.update({
     where: { id },
     data: {
       status: newStatus,
       notes: options?.notes !== undefined ? options.notes : existing.notes,
-      rejectionReason: options?.rejectionReason !== undefined ? options.rejectionReason : existing.rejectionReason,
-      reviewedAt: new Date(),
+      rejectionReason:
+        newStatus === OnboardingRequestStatus.REJECTED
+          ? options?.rejectionReason?.trim()
+          : existing.rejectionReason,
+      additionalInfoRequested:
+        newStatus === OnboardingRequestStatus.ADDITIONAL_INFO_REQUIRED
+          ? (options?.additionalInfoRequested || options?.notes)?.trim()
+          : existing.additionalInfoRequested,
+      reviewedAt: now,
       reviewedByUserId: ctx.user.id,
+      statusHistory: nextHistory as any,
     },
   });
 
   await createSystemAuditLog({
-    action: `ONBOARDING_REQUEST_${newStatus}`,
+    action: `APPLICATION_${newStatus}`,
     entityType: 'BusinessOnboardingRequest',
     entityId: id,
     actorUserId: ctx.user.id,
     previousState: { status: existing.status },
-    newState: { status: newStatus, notes: options?.notes, rejectionReason: options?.rejectionReason },
+    newState: {
+      status: newStatus,
+      notes: options?.notes,
+      rejectionReason: options?.rejectionReason,
+      additionalInfoRequested: options?.additionalInfoRequested,
+    },
   });
 
   return updated;
@@ -549,6 +1156,20 @@ export async function provisionBusinessFromRequest(
     });
 
     // G. Update Onboarding Request status to PROVISIONED
+    const prevHistory = Array.isArray(request.statusHistory) ? (request.statusHistory as any[]) : [];
+    const provHistory: StatusHistoryEntry[] = [
+      ...prevHistory,
+      {
+        status: OnboardingRequestStatus.PROVISIONED,
+        timestamp: new Date().toISOString(),
+        actorUserId: ctx.user.id,
+        actorRole: 'SUPER_ADMIN',
+        actorName: ctx.user.name,
+        actionTitle: 'Workspace Provisioned & Active',
+        notes: 'Business workspace, owner membership, and standee generated.',
+      },
+    ];
+
     const updatedRequest = await tx.businessOnboardingRequest.update({
       where: { id: request.id },
       data: {
@@ -557,6 +1178,7 @@ export async function provisionBusinessFromRequest(
         provisionedBusinessId: business.id,
         reviewedAt: new Date(),
         reviewedByUserId: ctx.user.id,
+        statusHistory: provHistory as any,
       },
     });
 

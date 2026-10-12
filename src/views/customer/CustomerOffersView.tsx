@@ -49,41 +49,61 @@ export const CustomerOffersView: React.FC<CustomerOffersViewProps> = () => {
   }, [fetchOffers]);
 
   return (
-    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Hero Banner */}
       <div
         style={{
-          borderRadius: '16px',
+          borderRadius: '14px',
           background: `linear-gradient(135deg, ${primaryColor} 0%, #1E293B 100%)`,
-          padding: '20px',
+          padding: '14px 16px',
           color: '#FFFFFF',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
           <div
             style={{
               padding: '3px 8px',
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               borderRadius: '20px',
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
+              letterSpacing: '0.04em',
             }}
           >
-            <Sparkles size={12} />
+            <Sparkles size={11} />
             EXCLUSIVE PROMOTIONS
           </div>
+          <button
+            onClick={fetchOffers}
+            disabled={isLoading}
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#FFFFFF',
+              width: '28px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            title="Refresh Offers"
+          >
+            <Sparkles size={13} className={isLoading ? 'animate-spin' : ''} />
+          </button>
         </div>
 
-        <h1 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
+        <h1 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px 0', letterSpacing: '-0.01em' }}>
           Offers & Deals
         </h1>
-        <p style={{ fontSize: '13px', margin: 0, opacity: 0.9, lineHeight: 1.4 }}>
+        <p style={{ fontSize: '12px', margin: 0, opacity: 0.9, lineHeight: 1.35 }}>
           Discover special savings and perks for your visits at {business?.name || 'our store'}.
         </p>
       </div>

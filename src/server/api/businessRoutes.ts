@@ -16,6 +16,7 @@ import {
   getBusinessBranding,
   updateBusinessBranding,
   getBusinessRoles,
+  getBusinessQrCode,
 } from '../services/businessService';
 import {
   getBusinessLoyaltyProgram,
@@ -248,6 +249,17 @@ businessRouter.get('/dashboard', async (req: TenantRequest, res: Response) => {
   try {
     const dashboard = await getBusinessDashboard(req.tenantContext!);
     res.json(dashboard);
+  } catch (err: any) {
+    const status = err.name === 'TenantAuthorizationError' || err.name === 'PermissionDeniedError' ? 403 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+// GET /api/business/qr
+businessRouter.get('/qr', async (req: TenantRequest, res: Response) => {
+  try {
+    const qr = await getBusinessQrCode(req.tenantContext!);
+    res.json(qr);
   } catch (err: any) {
     const status = err.name === 'TenantAuthorizationError' || err.name === 'PermissionDeniedError' ? 403 : 500;
     res.status(status).json({ error: err.message });

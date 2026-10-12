@@ -174,7 +174,9 @@ export const BranchesView: React.FC<BranchesViewProps> = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<MapPin size={20} />}
         title="Branch Locations"
+        badge={branches.length > 0 ? `${branches.length} ${branches.length === 1 ? 'Location' : 'Locations'}` : undefined}
         description="Manage physical business outlets, cash counters, and operating regions."
         actions={
           <Button

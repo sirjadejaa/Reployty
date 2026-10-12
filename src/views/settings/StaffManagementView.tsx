@@ -197,7 +197,9 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = () => {
   return (
     <PageContainer>
       <PageHeader
+        icon={<UserCheck size={20} />}
         title="Team & Staff Management"
+        badge={staff.length > 0 ? `${staff.length} ${staff.length === 1 ? 'Member' : 'Members'}` : undefined}
         description="Manage user permissions, roles, and branch assignments across your business."
         actions={
           <Button

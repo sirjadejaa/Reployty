@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import { useCustomerAuth } from '../../context/CustomerAuthContext';
 import {
   Gift,
@@ -41,7 +42,22 @@ export const CustomerRewardsView: React.FC<CustomerRewardsViewProps> = ({ onNavi
 
   // Active Voucher Pass Modal / Screen
   const [activeVoucherPass, setActiveVoucherPass] = useState<CustomerClaimedRedemption | null>(null);
+  const [voucherQrUrl, setVoucherQrUrl] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState(false);
+
+  useEffect(() => {
+    if (activeVoucherPass?.redemptionCode) {
+      QRCode.toDataURL(activeVoucherPass.redemptionCode, {
+        width: 180,
+        margin: 2,
+        color: { dark: '#0F172A', light: '#FFFFFF' },
+      })
+        .then(setVoucherQrUrl)
+        .catch(() => setVoucherQrUrl(''));
+    } else {
+      setVoucherQrUrl('');
+    }
+  }, [activeVoucherPass?.redemptionCode]);
 
   const primaryColor = business?.primaryColor || '#4F6BFF';
 
@@ -137,16 +153,44 @@ export const CustomerRewardsView: React.FC<CustomerRewardsViewProps> = ({ onNavi
   const pastVouchers = vouchers.filter((v) => v.status !== 'CLAIMED' || v.isExpired);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '30px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>
-            Rewards & Vouchers
-          </h1>
-          <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
-            Redeem your stamps and points for exclusive rewards.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '30px' }}>
+      {/* Creative Compact Mini-Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 14px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              backgroundColor: `${primaryColor}15`,
+              color: primaryColor,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+            }}
+          >
+            <Gift size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
+              Rewards & Vouchers
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+              Redeem your stamps and points
+            </div>
+          </div>
         </div>
 
         <button
@@ -157,18 +201,18 @@ export const CustomerRewardsView: React.FC<CustomerRewardsViewProps> = ({ onNavi
           }}
           title="Refresh"
           style={{
-            padding: '8px',
-            borderRadius: '10px',
-            backgroundColor: '#F1F5F9',
-            border: 'none',
-            color: '#475569',
+            padding: '7px',
+            borderRadius: '8px',
+            backgroundColor: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            color: '#64748B',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={15} />
         </button>
       </div>
 
@@ -808,30 +852,52 @@ export const CustomerRewardsView: React.FC<CustomerRewardsViewProps> = ({ onNavi
                 {activeVoucherPass.redemptionCode}
               </div>
 
-              {/* Barcode visual lines */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '3px',
-                  height: '24px',
-                  marginTop: '4px',
-                  opacity: 0.7,
-                }}
-              >
-                {[4, 2, 6, 2, 8, 3, 5, 2, 7, 3, 2, 6, 4, 8, 2, 5, 3, 7, 2, 4].map((h, i) => (
-                  <div
-                    key={i}
+              {/* Scannable Voucher QR Code */}
+              {voucherQrUrl ? (
+                <div style={{ marginTop: '10px', marginBottom: '6px', textAlign: 'center' }}>
+                  <img
+                    src={voucherQrUrl}
+                    alt={`Voucher QR for ${activeVoucherPass.redemptionCode}`}
                     style={{
-                      width: h > 4 ? '3px' : '2px',
-                      height: '100%',
-                      backgroundColor: '#0F172A',
-                      borderRadius: '1px',
+                      width: 130,
+                      height: 130,
+                      borderRadius: 8,
+                      border: '1px solid #E2E8F0',
+                      imageRendering: 'pixelated',
+                      display: 'block',
+                      margin: '0 auto',
                     }}
                   />
-                ))}
-              </div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+                    Scan with cashier reader
+                  </div>
+                </div>
+              ) : (
+                /* Barcode visual fallback */
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '3px',
+                    height: '24px',
+                    marginTop: '4px',
+                    opacity: 0.7,
+                  }}
+                >
+                  {[4, 2, 6, 2, 8, 3, 5, 2, 7, 3, 2, 6, 4, 8, 2, 5, 3, 7, 2, 4].map((h, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: h > 4 ? '3px' : '2px',
+                        height: '100%',
+                        backgroundColor: '#0F172A',
+                        borderRadius: '1px',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
 
               <button
                 type="button"

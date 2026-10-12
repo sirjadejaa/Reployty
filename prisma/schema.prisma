@@ -345,6 +345,7 @@ model User {
   createdCampaigns    Campaign[]            @relation("CampaignCreator")
   createdSegments     CustomerSegment[]     @relation("SegmentCreator")
   reviewedOnboardingRequests BusinessOnboardingRequest[] @relation("RequestReviewer")
+  submittedOnboardingRequests BusinessOnboardingRequest[] @relation("ApplicantUser")
   ownerInvitations           OwnerInvitation[]
 
   @@map("users")
@@ -1674,48 +1675,62 @@ model CampaignConversion {
 // ============================================================================
 
 enum OnboardingRequestStatus {
+  DRAFT
+  SUBMITTED
   PENDING
   UNDER_REVIEW
+  ADDITIONAL_INFO_REQUIRED
   APPROVED
   REJECTED
+  CANCELLED
   PROVISIONED
 }
 
 model BusinessOnboardingRequest {
-  id                    String                  @id @default(uuid())
-  businessName          String
-  businessCategory      BusinessCategory        @default(CAFE)
-  businessDescription   String?
-  ownerName             String
-  ownerEmail            String
-  ownerPhone            String
-  country               String                  @default("IN")
-  city                  String
-  address               String
-  state                 String?
-  postalCode            String?
-  website               String?
-  businessPhone         String?
-  estimatedBranches     Int                     @default(1)
-  logoUrl               String?
-  primaryColor          String?                 @default("#4F6BFF")
-  themePreset           String?                 @default("modern")
-  status                OnboardingRequestStatus @default(PENDING)
-  notes                 String?
-  rejectionReason       String?
-  reviewedAt            DateTime?
-  reviewedByUserId      String?
-  provisionedAt         DateTime?
-  provisionedBusinessId String?
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  id                         String                  @id @default(uuid())
+  applicationNumber          String?                 @unique
+  applicantUserId            String?
+  businessName               String
+  businessCategory           BusinessCategory        @default(CAFE)
+  businessDescription        String?
+  ownerName                  String
+  ownerEmail                 String
+  ownerPhone                 String
+  country                    String                  @default("IN")
+  city                       String
+  address                    String
+  state                      String?
+  postalCode                 String?
+  website                    String?
+  businessPhone              String?
+  estimatedBranches          Int                     @default(1)
+  logoUrl                    String?
+  primaryColor               String?                 @default("#4F6BFF")
+  themePreset                String?                 @default("modern")
+  status                     OnboardingRequestStatus @default(PENDING)
+  submittedAt                DateTime?               @default(now())
+  notes                      String?
+  rejectionReason            String?
+  additionalInfoRequested    String?
+  additionalInfoSubmitted    String?
+  additionalInfoSubmittedAt  DateTime?
+  statusHistory              Json?
+  reviewedAt                 DateTime?
+  reviewedByUserId           String?
+  provisionedAt              DateTime?
+  provisionedBusinessId      String?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 
+  applicantUser         User?                   @relation("ApplicantUser", fields: [applicantUserId], references: [id], onDelete: SetNull)
   reviewedBy            User?                   @relation("RequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   provisionedBusiness   Business?               @relation("ProvisionedFromRequest", fields: [provisionedBusinessId], references: [id], onDelete: SetNull)
   invitations           OwnerInvitation[]
 
   @@index([status, createdAt])
   @@index([ownerEmail])
+  @@index([applicantUserId])
+  @@index([applicationNumber])
   @@map("business_onboarding_requests")
 }
 

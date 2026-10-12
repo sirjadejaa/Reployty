@@ -345,43 +345,89 @@
   min-width: 0;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-8);
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: 14px;
 }
 
 .page-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
   width: 100%;
   min-width: 0;
+  background: var(--color-surface, #FFFFFF);
+  border: 1px solid var(--color-border, #E2E8F0);
+  border-radius: var(--radius-lg, 14px);
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.page-header-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.page-header-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-primary-subtle, #EEF2FF);
+  color: var(--color-primary, #4F6BFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .page-header-text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
-  flex: 1 1 280px;
+  flex: 1;
+}
+
+.page-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.page-header-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--color-primary-soft, #EEF2FF);
+  color: var(--color-primary, #4F6BFF);
 }
 
 .page-title {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary, #0F172A);
   letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
   word-break: break-word;
   overflow-wrap: break-word;
 }
 
 .page-subtitle {
-  font-size: var(--font-size-base);
-  color: var(--color-text-secondary);
-  max-width: 600px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748B);
+  max-width: 680px;
+  line-height: 1.4;
+  margin: 0;
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -389,9 +435,10 @@
 .page-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -567,7 +614,8 @@
 /* Mobile: < 640px */
 @media (max-width: 639px) {
   .app-header {
-    padding: 0 var(--space-4);
+    height: 56px;
+    padding: 0 var(--space-3);
   }
 
   .header-search-wrap {
@@ -575,57 +623,143 @@
   }
 
   .page-container {
-    padding: var(--space-4);
-    padding-bottom: calc(var(--mobile-nav-height) + var(--space-6));
-    gap: var(--space-4);
+    padding: 10px 14px;
+    padding-bottom: calc(var(--mobile-nav-height) + var(--space-5));
+    gap: var(--space-3);
     width: 100%;
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
   }
 
-  .page-title {
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.25;
+  .admin-page-container {
+    padding: 10px 14px !important;
+    padding-bottom: calc(var(--mobile-nav-height) + var(--space-5)) !important;
+    gap: var(--space-3) !important;
   }
 
-  .page-subtitle {
-    font-size: 13px;
-    line-height: 1.45;
+  .admin-page-container > div {
+    gap: 12px !important;
   }
 
   .page-header {
+    padding: 10px 12px;
+    border-radius: 12px;
     flex-direction: column;
     align-items: stretch;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
+    gap: 8px;
+    margin-bottom: 0;
     width: 100%;
     min-width: 0;
+  }
+
+  .page-header-main {
+    gap: 10px;
+    width: 100%;
+  }
+
+  .page-header-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .page-header-icon-box svg {
+    width: 16px;
+    height: 16px;
   }
 
   .page-header-text {
     width: 100%;
     min-width: 0;
+    gap: 1px;
+  }
+
+  .page-title {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .page-subtitle {
+    font-size: 11px;
+    line-height: 1.35;
   }
 
   .page-actions {
     width: 100%;
     min-width: 0;
     display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    margin-top: 2px;
   }
 
   .page-actions > * {
-    flex: 1 1 140px;
-    min-height: 44px;
-    justify-content: center;
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .dashboard-header-wrap {
+    gap: var(--space-2);
+    margin-bottom: 10px !important;
+  }
+
+  .dashboard-header-logo {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .dashboard-header-title {
+    font-size: 18px !important;
+  }
+
+  .business-view-container {
+    padding: 10px 14px calc(var(--mobile-nav-height) + var(--space-5)) 14px !important;
+  }
+
+  .business-view-header {
+    margin-bottom: 10px !important;
+    gap: var(--space-2) !important;
   }
 
   .mobile-bottom-nav {
     display: block;
   }
+}
+
+.dashboard-header-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.dashboard-header-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.dashboard-header-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.business-view-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.business-view-header {
+  margin-bottom: var(--space-5);
 }
 
 /* ==========================================================================
@@ -634,6 +768,21 @@
 
 .hidden {
   display: none !important;
+}
+
+@media (max-width: 639px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+  .admin-page-container {
+    padding-bottom: calc(var(--mobile-nav-height) + var(--space-6)) !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .hidden-desktop {
+    display: none !important;
+  }
 }
 
 @media (min-width: 1024px) {

@@ -64,15 +64,27 @@ function generateInvoiceNumber(): string {
 // 1. PLANS MANAGEMENT
 // ============================================================================
 
-export async function getAllPlans(activeOnly: boolean = false): Promise<Plan[]> {
+export async function getAllPlans(activeOnly: boolean = false): Promise<any[]> {
   return prisma.plan.findMany({
     where: activeOnly ? { isActive: true } : undefined,
     orderBy: { priceMinor: 'asc' },
+    include: {
+      _count: {
+        select: { subscriptions: true },
+      },
+    },
   });
 }
 
 export async function getPlanById(id: string): Promise<Plan | null> {
-  return prisma.plan.findUnique({ where: { id } });
+  return prisma.plan.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: { subscriptions: true },
+      },
+    },
+  });
 }
 
 export async function getPlanBySlug(slug: string): Promise<Plan | null> {
@@ -82,25 +94,43 @@ export async function getPlanBySlug(slug: string): Promise<Plan | null> {
 export async function createPlan(ctx: TenantContext, input: CreatePlanInput): Promise<Plan> {
   requireSuperAdmin(ctx);
 
-  const existing = await prisma.plan.findUnique({ where: { slug: input.slug } });
-  if (existing) {
-    throw new Error(`Plan with slug '${input.slug}' already exists`);
+  if (!input.name || typeof input.name !== 'string' || input.name.trim().length < 2) {
+    throw new BillingError('Package name must be at least 2 characters', 400);
   }
+
+  const cleanSlug = (input.slug || input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')).trim().toLowerCase();
+  if (!cleanSlug) {
+    throw new BillingError('A valid slug is required', 400);
+  }
+
+  const existing = await prisma.plan.findUnique({ where: { slug: cleanSlug } });
+  if (existing) {
+    throw new BillingError(`Package with code/slug '${cleanSlug}' already exists`, 400);
+  }
+
+  const priceMinor = Math.round(Number(input.priceMinor) || 0);
+  if (priceMinor < 0) {
+    throw new BillingError('Price must be a non-negative integer in minor units', 400);
+  }
+
+  const yearlyPriceMinor = input.yearlyPriceMinor !== undefined && input.yearlyPriceMinor !== null
+    ? Math.round(Number(input.yearlyPriceMinor))
+    : null;
 
   const plan = await prisma.plan.create({
     data: {
-      name: input.name,
-      slug: input.slug,
-      description: input.description,
-      priceMinor: Math.round(input.priceMinor),
-      yearlyPriceMinor: input.yearlyPriceMinor ? Math.round(input.yearlyPriceMinor) : null,
-      currency: input.currency || 'INR',
+      name: input.name.trim(),
+      slug: cleanSlug,
+      description: input.description?.trim() || null,
+      priceMinor,
+      yearlyPriceMinor,
+      currency: input.currency?.trim() || 'INR',
       billingInterval: input.billingInterval || BillingInterval.MONTHLY,
-      features: input.features as unknown as Prisma.InputJsonValue,
+      features: (input.features || []) as unknown as Prisma.InputJsonValue,
       limits: (input.limits || {}) as unknown as Prisma.InputJsonValue,
-      maxCustomers: input.maxCustomers ?? 1000,
-      maxBranches: input.maxBranches ?? 1,
-      maxStaff: input.maxStaff ?? 5,
+      maxCustomers: Math.max(1, Number(input.maxCustomers) || 1000),
+      maxBranches: Math.max(1, Number(input.maxBranches) || 1),
+      maxStaff: Math.max(1, Number(input.maxStaff) || 5),
       isActive: input.isActive ?? true,
     },
   });
@@ -120,24 +150,51 @@ export async function updatePlan(ctx: TenantContext, planId: string, input: Upda
 
   const oldPlan = await prisma.plan.findUnique({ where: { id: planId } });
   if (!oldPlan) {
-    throw new Error('Plan not found');
+    throw new BillingError('Package not found', 404);
+  }
+
+  const data: Prisma.PlanUpdateInput = {};
+
+  if (input.name !== undefined) {
+    if (!input.name.trim()) throw new BillingError('Package name cannot be empty', 400);
+    data.name = input.name.trim();
+  }
+  if (input.description !== undefined) {
+    data.description = input.description?.trim() || null;
+  }
+  if (input.priceMinor !== undefined) {
+    const p = Math.round(Number(input.priceMinor));
+    if (p < 0) throw new BillingError('Price must be a non-negative integer in minor units', 400);
+    data.priceMinor = p;
+  }
+  if (input.yearlyPriceMinor !== undefined) {
+    data.yearlyPriceMinor = input.yearlyPriceMinor !== null ? Math.round(Number(input.yearlyPriceMinor)) : null;
+  }
+  if (input.currency !== undefined) {
+    data.currency = input.currency.trim();
+  }
+  if (input.features !== undefined) {
+    data.features = input.features as unknown as Prisma.InputJsonValue;
+  }
+  if (input.limits !== undefined) {
+    data.limits = input.limits as unknown as Prisma.InputJsonValue;
+  }
+  if (input.maxCustomers !== undefined) {
+    data.maxCustomers = Math.max(1, Number(input.maxCustomers));
+  }
+  if (input.maxBranches !== undefined) {
+    data.maxBranches = Math.max(1, Number(input.maxBranches));
+  }
+  if (input.maxStaff !== undefined) {
+    data.maxStaff = Math.max(1, Number(input.maxStaff));
+  }
+  if (input.isActive !== undefined) {
+    data.isActive = Boolean(input.isActive);
   }
 
   const updated = await prisma.plan.update({
     where: { id: planId },
-    data: {
-      name: input.name,
-      description: input.description,
-      priceMinor: input.priceMinor !== undefined ? Math.round(input.priceMinor) : undefined,
-      yearlyPriceMinor: input.yearlyPriceMinor !== undefined ? Math.round(input.yearlyPriceMinor) : undefined,
-      currency: input.currency,
-      features: input.features !== undefined ? (input.features as unknown as Prisma.InputJsonValue) : undefined,
-      limits: input.limits !== undefined ? (input.limits as unknown as Prisma.InputJsonValue) : undefined,
-      maxCustomers: input.maxCustomers,
-      maxBranches: input.maxBranches,
-      maxStaff: input.maxStaff,
-      isActive: input.isActive,
-    },
+    data,
   });
 
   await createAuditLog(ctx, {
@@ -149,6 +206,468 @@ export async function updatePlan(ctx: TenantContext, planId: string, input: Upda
   });
 
   return updated;
+}
+
+export async function togglePlanStatus(
+  ctx: TenantContext,
+  planId: string,
+  isActive: boolean
+): Promise<Plan> {
+  requireSuperAdmin(ctx);
+
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!plan) {
+    throw new BillingError('Package not found', 404);
+  }
+
+  const updated = await prisma.plan.update({
+    where: { id: planId },
+    data: { isActive },
+  });
+
+  await createAuditLog(ctx, {
+    action: isActive ? 'BILLING_PLAN_ACTIVATED' : 'BILLING_PLAN_DEACTIVATED',
+    entityType: 'PLAN',
+    entityId: planId,
+    previousState: { isActive: plan.isActive } as unknown as Prisma.InputJsonValue,
+    newState: { isActive: updated.isActive } as unknown as Prisma.InputJsonValue,
+  });
+
+  return updated;
+}
+
+export async function deletePlan(
+  ctx: TenantContext,
+  planId: string,
+  options?: { reassignToFree?: boolean }
+): Promise<{ success: boolean; message: string; reassignedCount?: number }> {
+  requireSuperAdmin(ctx);
+
+  const plan = await prisma.plan.findUnique({
+    where: { id: planId },
+    include: {
+      _count: {
+        select: { subscriptions: true },
+      },
+    },
+  });
+
+  if (!plan) {
+    throw new BillingError('Package not found', 404);
+  }
+
+  if (plan.slug === 'free') {
+    throw new BillingError('The canonical Free package cannot be deleted.', 400);
+  }
+
+  let reassignedCount = 0;
+
+  if (options?.reassignToFree) {
+    const freePlan = await prisma.plan.findUnique({ where: { slug: 'free' } });
+    if (!freePlan) {
+      throw new BillingError('Canonical Free package not found for reassignment', 500);
+    }
+
+    const subs = await prisma.subscription.findMany({ where: { planId } });
+    reassignedCount = subs.length;
+
+    const now = new Date();
+    for (const sub of subs) {
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: {
+          planId: freePlan.id,
+          status: SubscriptionStatus.ACTIVE,
+          currentPeriodStart: now,
+          currentPeriodEnd: new Date(now.getTime() + 365 * 10 * 86400000),
+          cancelAtPeriodEnd: false,
+          gracePeriodEndsAt: null,
+        },
+      });
+
+      await prisma.business.update({
+        where: { id: sub.businessId },
+        data: { planId: freePlan.id },
+      });
+
+      await createAuditLog(ctx, {
+        action: 'BUSINESS_PLAN_REASSIGNED_TO_FREE',
+        entityType: 'BUSINESS',
+        entityId: sub.businessId,
+        previousState: { planId: plan.id, planName: plan.name, status: sub.status } as unknown as Prisma.InputJsonValue,
+        newState: { planId: freePlan.id, planName: freePlan.name, status: SubscriptionStatus.ACTIVE } as unknown as Prisma.InputJsonValue,
+      });
+    }
+
+    await prisma.business.updateMany({
+      where: { planId },
+      data: { planId: freePlan.id },
+    });
+  } else {
+    // Check if any subscriptions reference this plan
+    if (plan._count.subscriptions > 0) {
+      throw new BillingError(
+        `Cannot delete package '${plan.name}' because ${plan._count.subscriptions} businesses are currently subscribed to it. Deactivate the package instead to prevent new assignments while preserving existing subscriptions and billing history.`,
+        409
+      );
+    }
+
+    // Also check if any businesses have planId pointing here
+    const businessesWithPlan = await prisma.business.count({
+      where: { planId },
+    });
+    if (businessesWithPlan > 0) {
+      throw new BillingError(
+        `Cannot delete package '${plan.name}' because ${businessesWithPlan} businesses have this package assigned. Please reassign those businesses or deactivate the package instead.`,
+        409
+      );
+    }
+  }
+
+  await prisma.plan.delete({
+    where: { id: planId },
+  });
+
+  await createAuditLog(ctx, {
+    action: 'BILLING_PLAN_DELETED',
+    entityType: 'PLAN',
+    entityId: planId,
+    previousState: plan as unknown as Prisma.InputJsonValue,
+  });
+
+  return {
+    success: true,
+    message: `Package '${plan.name}' successfully deleted.`,
+    reassignedCount,
+  };
+}
+
+export interface PlanCleanupPreviewResult {
+  canonicalFreePlan: {
+    id: string;
+    name: string;
+    slug: string;
+    priceMinor: number;
+    features: string[];
+    limits: Record<string, any>;
+    maxCustomers: number;
+    maxBranches: number;
+    maxStaff: number;
+  };
+  unwantedPlans: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    priceMinor: number;
+    subscriptionsCount: number;
+    businessesCount: number;
+    isActive: boolean;
+  }>;
+  affectedBusinesses: Array<{
+    id: string;
+    name: string;
+    currentPlanId: string;
+    currentPlanName: string;
+    currentPlanSlug: string;
+    subscriptionStatus: string;
+    invoicesCount: number;
+    paymentsCount: number;
+  }>;
+  preservedHistoricalPlans: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    reason: string;
+    subscriptionsCount: number;
+  }>;
+  summary: {
+    totalPlansInDb: number;
+    unwantedPlansCount: number;
+    affectedBusinessesCount: number;
+    preservedHistoricalPlansCount: number;
+    canCleanSafely: boolean;
+  };
+}
+
+export async function getPlanCleanupPreview(ctx: TenantContext): Promise<PlanCleanupPreviewResult> {
+  requireSuperAdmin(ctx);
+
+  const freePlan = await prisma.plan.findUnique({ where: { slug: 'free' } });
+  if (!freePlan) {
+    throw new BillingError('Canonical Free package with code "free" not found in database', 404);
+  }
+
+  const allPlans = await prisma.plan.findMany({
+    include: {
+      subscriptions: {
+        include: {
+          business: true,
+          invoices: true,
+          payments: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const protectedSeedSlugs = new Set(['free', 'starter', 'growth', 'enterprise']);
+
+  const unwantedPlans: PlanCleanupPreviewResult['unwantedPlans'] = [];
+  const affectedBusinessesMap = new Map<string, PlanCleanupPreviewResult['affectedBusinesses'][0]>();
+  const preservedHistoricalPlans: PlanCleanupPreviewResult['preservedHistoricalPlans'] = [];
+
+  for (const plan of allPlans) {
+    if (plan.slug === 'free') continue;
+
+    if (protectedSeedSlugs.has(plan.slug)) {
+      preservedHistoricalPlans.push({
+        id: plan.id,
+        name: plan.name,
+        slug: plan.slug,
+        reason: plan.subscriptions.length > 0
+          ? `Canonical seed package with ${plan.subscriptions.length} active business subscription(s) and historical billing records. Will be deactivated from active catalogue to prevent new assignments while preserving existing contracts.`
+          : 'Canonical seed package. Deactivated from active catalogue.',
+        subscriptionsCount: plan.subscriptions.length,
+      });
+      continue;
+    }
+
+    // Manually created / test plan
+    const bizCount = await prisma.business.count({ where: { planId: plan.id } });
+    unwantedPlans.push({
+      id: plan.id,
+      name: plan.name,
+      slug: plan.slug,
+      priceMinor: plan.priceMinor,
+      subscriptionsCount: plan.subscriptions.length,
+      businessesCount: bizCount,
+      isActive: plan.isActive,
+    });
+
+    for (const sub of plan.subscriptions) {
+      if (!affectedBusinessesMap.has(sub.business.id)) {
+        affectedBusinessesMap.set(sub.business.id, {
+          id: sub.business.id,
+          name: sub.business.name,
+          currentPlanId: plan.id,
+          currentPlanName: plan.name,
+          currentPlanSlug: plan.slug,
+          subscriptionStatus: sub.status,
+          invoicesCount: sub.invoices.length,
+          paymentsCount: sub.payments.length,
+        });
+      }
+    }
+  }
+
+  const affectedBusinesses = Array.from(affectedBusinessesMap.values());
+
+  return {
+    canonicalFreePlan: {
+      id: freePlan.id,
+      name: freePlan.name,
+      slug: freePlan.slug,
+      priceMinor: freePlan.priceMinor,
+      features: (freePlan.features as string[]) || [],
+      limits: (freePlan.limits as Record<string, any>) || {},
+      maxCustomers: freePlan.maxCustomers,
+      maxBranches: freePlan.maxBranches,
+      maxStaff: freePlan.maxStaff,
+    },
+    unwantedPlans,
+    affectedBusinesses,
+    preservedHistoricalPlans,
+    summary: {
+      totalPlansInDb: allPlans.length,
+      unwantedPlansCount: unwantedPlans.length,
+      affectedBusinessesCount: affectedBusinesses.length,
+      preservedHistoricalPlansCount: preservedHistoricalPlans.length,
+      canCleanSafely: true,
+    },
+  };
+}
+
+export interface PlanCleanupExecutionResult {
+  success: boolean;
+  canonicalFreePlan: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  reassignedBusinessesCount: number;
+  deletedPlansCount: number;
+  archivedPlansCount: number;
+  deletedPlanSlugs: string[];
+  archivedPlanSlugs: string[];
+  message: string;
+}
+
+export async function executePlanCleanup(
+  ctx: TenantContext,
+  options?: { dryRun?: boolean }
+): Promise<PlanCleanupExecutionResult> {
+  requireSuperAdmin(ctx);
+
+  const preview = await getPlanCleanupPreview(ctx);
+  if (options?.dryRun) {
+    return {
+      success: true,
+      canonicalFreePlan: {
+        id: preview.canonicalFreePlan.id,
+        name: preview.canonicalFreePlan.name,
+        slug: preview.canonicalFreePlan.slug,
+      },
+      reassignedBusinessesCount: preview.summary.affectedBusinessesCount,
+      deletedPlansCount: preview.summary.unwantedPlansCount,
+      archivedPlansCount: preview.summary.preservedHistoricalPlansCount,
+      deletedPlanSlugs: preview.unwantedPlans.map((p) => p.slug),
+      archivedPlanSlugs: preview.preservedHistoricalPlans.map((p) => p.slug),
+      message: `Dry-run preview: ${preview.unwantedPlans.length} packages will be removed, ${preview.affectedBusinesses.length} businesses will be reassigned to Free.`,
+    };
+  }
+
+  await createAuditLog(ctx, {
+    action: 'PACKAGE_CLEANUP_INITIATED',
+    entityType: 'PLAN',
+    entityId: preview.canonicalFreePlan.id,
+    newState: {
+      unwantedPlansCount: preview.unwantedPlans.length,
+      affectedBusinessesCount: preview.affectedBusinesses.length,
+    } as unknown as Prisma.InputJsonValue,
+  });
+
+  const freePlanId = preview.canonicalFreePlan.id;
+  const now = new Date();
+  const deletedPlanSlugs: string[] = [];
+  const archivedPlanSlugs: string[] = [];
+  let reassignedBusinessesCount = 0;
+
+  // Execute reassignment and deletions inside a transaction
+  await prisma.$transaction(async (tx) => {
+    // 1. Reassign all subscriptions on unwanted plans to Free Starter
+    for (const b of preview.affectedBusinesses) {
+      const sub = await tx.subscription.findUnique({
+        where: { businessId: b.id },
+      });
+      if (sub) {
+        await tx.subscription.update({
+          where: { id: sub.id },
+          data: {
+            planId: freePlanId,
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodStart: now,
+            currentPeriodEnd: new Date(now.getTime() + 365 * 10 * 86400000),
+            cancelAtPeriodEnd: false,
+            gracePeriodEndsAt: null,
+          },
+        });
+      }
+
+      await tx.business.update({
+        where: { id: b.id },
+        data: { planId: freePlanId },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          businessId: b.id,
+          actorUserId: ctx.user?.id || null,
+          action: 'BUSINESS_PLAN_REASSIGNED_TO_FREE',
+          entityType: 'BUSINESS',
+          entityId: b.id,
+          previousState: {
+            planId: b.currentPlanId,
+            planName: b.currentPlanName,
+            status: b.subscriptionStatus,
+          } as unknown as Prisma.InputJsonValue,
+          newState: {
+            planId: freePlanId,
+            planName: preview.canonicalFreePlan.name,
+            status: SubscriptionStatus.ACTIVE,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      reassignedBusinessesCount++;
+    }
+
+    // 2. Also reassign any business.planId pointing to unwanted plans without subscriptions
+    const unwantedPlanIds = preview.unwantedPlans.map((p) => p.id);
+    if (unwantedPlanIds.length > 0) {
+      await tx.business.updateMany({
+        where: { planId: { in: unwantedPlanIds } },
+        data: { planId: freePlanId },
+      });
+    }
+
+    // 3. Preserved historical seed plans are retained for grandfathered contracts
+    for (const seed of preview.preservedHistoricalPlans) {
+      archivedPlanSlugs.push(seed.slug);
+    }
+
+    // 4. Delete each unwanted plan
+    for (const p of preview.unwantedPlans) {
+      try {
+        await tx.plan.delete({
+          where: { id: p.id },
+        });
+        deletedPlanSlugs.push(p.slug);
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: ctx.user?.id || null,
+            action: 'BILLING_PLAN_DELETED',
+            entityType: 'PLAN',
+            entityId: p.id,
+            previousState: { name: p.name, slug: p.slug } as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } catch (err: any) {
+        // Fallback to archiving if any DB constraint was violated
+        await tx.plan.update({
+          where: { id: p.id },
+          data: { isActive: false },
+        });
+        archivedPlanSlugs.push(p.slug);
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: ctx.user?.id || null,
+            action: 'BILLING_PLAN_ARCHIVED',
+            entityType: 'PLAN',
+            entityId: p.id,
+            previousState: { name: p.name, slug: p.slug, error: err.message } as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+    }
+  });
+
+  await createAuditLog(ctx, {
+    action: 'PACKAGE_CLEANUP_COMPLETED',
+    entityType: 'PLAN',
+    entityId: freePlanId,
+    newState: {
+      reassignedBusinessesCount,
+      deletedPlansCount: deletedPlanSlugs.length,
+      archivedPlansCount: archivedPlanSlugs.length,
+    } as unknown as Prisma.InputJsonValue,
+  });
+
+  return {
+    success: true,
+    canonicalFreePlan: {
+      id: preview.canonicalFreePlan.id,
+      name: preview.canonicalFreePlan.name,
+      slug: preview.canonicalFreePlan.slug,
+    },
+    reassignedBusinessesCount,
+    deletedPlansCount: deletedPlanSlugs.length,
+    archivedPlansCount: archivedPlanSlugs.length,
+    deletedPlanSlugs,
+    archivedPlanSlugs,
+    message: `Package cleanup completed successfully: ${deletedPlanSlugs.length} unwanted package(s) deleted, ${reassignedBusinessesCount} business(es) safely reassigned to Free Starter, canonical Free package preserved as the only active package.`,
+  };
 }
 
 // ============================================================================

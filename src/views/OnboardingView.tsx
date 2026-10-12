@@ -12,6 +12,7 @@ import {
   Gamepad2,
   ShoppingBag,
   Store,
+  QrCode,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -19,6 +20,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Textarea } from '../components/ui/Textarea';
 import { Skeleton } from '../components/ui/Skeleton';
+import { StoreQrCodeModal } from '../components/business/StoreQrCodeModal';
 import { useTenant } from '../context/TenantContext';
 import { useToast } from '../context/ToastContext';
 import { AdminRoute } from '../types/loyalty';
@@ -45,6 +47,19 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onNavigate }) =>
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<{ code: string; destinationUrl: string; scanCount: number } | null>(null);
+
+  useEffect(() => {
+    if (currentStep === 6) {
+      fetch('/api/business/qr')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setQrCodeData(data);
+        })
+        .catch((err) => console.error('Failed to load QR code for onboarding:', err));
+    }
+  }, [currentStep]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -778,8 +793,53 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onNavigate }) =>
               </div>
             </div>
 
+            {/* Real Store QR Code Banner */}
+            <div
+              style={{
+                maxWidth: 420,
+                margin: '0 auto 28px',
+                padding: '20px',
+                borderRadius: '16px',
+                backgroundColor: '#EEF2FF',
+                border: '1.5px solid #C7D2FE',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '12px',
+                  backgroundColor: '#4F6BFF',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px',
+                }}
+              >
+                <QrCode size={24} />
+              </div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E1B4B', margin: '0 0 6px' }}>
+                Your Store QR Code is Ready!
+              </h3>
+              <p style={{ fontSize: '12px', color: '#4338CA', margin: '0 0 16px', lineHeight: 1.45 }}>
+                Display this standee on your counter. When customers scan it, they instantly see your loyalty card and can leave Google reviews.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsQrModalOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <QrCode size={14} />
+                View & Download QR Code
+              </Button>
+            </div>
+
             <Button
-              variant="primary"
+              variant="outline"
               size="lg"
               onClick={() => onNavigate('dashboard')}
               style={{ padding: '0 32px' }}
@@ -835,6 +895,17 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onNavigate }) =>
           </div>
         )}
       </Card>
+
+      {isQrModalOpen && qrCodeData && (
+        <StoreQrCodeModal
+          isOpen={isQrModalOpen}
+          onClose={() => setIsQrModalOpen(false)}
+          businessName={formData.name || currentBusiness.name}
+          businessSlug={currentBusiness.slug}
+          businessLogo={currentBusiness.logo}
+          qrCode={qrCodeData}
+        />
+      )}
     </div>
   );
 };

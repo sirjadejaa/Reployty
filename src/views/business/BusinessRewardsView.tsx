@@ -315,9 +315,10 @@ export const BusinessRewardsView: React.FC = () => {
   });
 
   return (
-    <div style={{ padding: 'var(--space-6)', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="business-view-container" style={{ padding: 'var(--space-6)', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Page Header */}
       <div
+        className="business-view-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',

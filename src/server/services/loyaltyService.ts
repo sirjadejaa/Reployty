@@ -39,6 +39,7 @@ export async function getBusinessLoyaltyProgram(ctx: TenantContext) {
       businessId: ctx.businessId,
       status: 'ACTIVE',
     },
+    orderBy: { updatedAt: 'desc' },
     include: {
       _count: {
         select: { cards: true },
@@ -822,6 +823,7 @@ export async function searchLoyaltyCustomers(ctx: TenantContext, query?: string)
 
   const activeProgram = await prisma.loyaltyProgram.findFirst({
     where: { businessId: ctx.businessId, status: 'ACTIVE' },
+    orderBy: { updatedAt: 'desc' },
   });
 
   const customers = await prisma.customer.findMany({
@@ -896,6 +898,7 @@ export async function getCustomerLoyaltyState(customerCtx: CustomerSessionContex
       businessId,
       status: 'ACTIVE',
     },
+    orderBy: { updatedAt: 'desc' },
     select: {
       id: true,
       name: true,
@@ -1186,8 +1189,14 @@ export async function claimCustomerQrEarning(
   }
 
   // 1. Resolve QR code securely from server database
-  const qrRecord = await prisma.qRCode.findUnique({
-    where: { code: cleanCode },
+  // First, look up the exact QR code by its code token
+  let qrRecord = await prisma.qRCode.findFirst({
+    where: {
+      OR: [
+        { code: cleanCode },
+        { code: cleanCode.toUpperCase() },
+      ],
+    },
     include: {
       business: {
         select: {
@@ -1206,6 +1215,35 @@ export async function claimCustomerQrEarning(
       },
     },
   });
+
+  // If not found by exact code token, check if cleanCode matches a business slug or destination URL
+  if (!qrRecord) {
+    qrRecord = await prisma.qRCode.findFirst({
+      where: {
+        OR: [
+          { business: { slug: cleanCode.toLowerCase() } },
+          { destinationUrl: { contains: cleanCode } },
+        ],
+      },
+      include: {
+        business: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            status: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
 
   if (!qrRecord || qrRecord.status !== 'ACTIVE' || qrRecord.business.status !== 'ACTIVE') {
     throw new LoyaltyOperationError('This QR code is invalid, inactive, or expired', 'INVALID_QR');
@@ -1291,6 +1329,7 @@ export async function claimCustomerQrEarning(
       businessId,
       status: 'ACTIVE',
     },
+    orderBy: { updatedAt: 'desc' },
   });
 
   if (!program) {

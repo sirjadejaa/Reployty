@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import { ToastProvider } from './context/ToastContext';
@@ -43,6 +43,7 @@ import { AdminBillingView } from './views/admin/AdminBillingView';
 import { GetStartedView } from './views/public/GetStartedView';
 import { SetupPasswordView } from './views/public/SetupPasswordView';
 import { AdminApplicationsView } from './views/admin/AdminApplicationsView';
+import { ApplicationTrackingView } from './views/business/ApplicationTrackingView';
 import { Button } from './components/ui/Button';
 import { Award, Shield, AlertTriangle } from 'lucide-react';
 
@@ -53,61 +54,132 @@ export const AppContent: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>('dashboard');
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [authView, setAuthView] = useState<'login' | 'forgot-password'>('login');
-  const [publicView, setPublicView] = useState<'none' | 'get-started' | 'setup-password'>('none');
+  const [publicView, setPublicView] = useState<'none' | 'get-started' | 'setup-password' | 'application-status'>('none');
+  const [trackingParams, setTrackingParams] = useState<{ ref?: string; email?: string }>({});
+
+  // Helper to determine customer route from either hash or pathname (e.g. from QR scans)
+  const resolveCustomerRoute = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return { isCustomer: false, qrToken: '', tab: 'home' as const };
+    }
+
+    const rawHash = window.location.hash.replace(/^#\/?/, '');
+    const pathname = window.location.pathname.replace(/^\//, '');
+    const search = window.location.search;
+
+    // Prefer hash if present, fallback to pathname
+    const routeString = rawHash || pathname;
+    const [routePart, queryFromRoute] = routeString.split('?');
+
+    const params = new URLSearchParams(queryFromRoute || search);
+    let token = params.get('qr') || '';
+    let tab: 'home' | 'loyalty' | 'rewards' | 'activity' | 'profile' | 'landing' | 'review' = 'home';
+
+    const isCustomer =
+      routePart.startsWith('join') ||
+      routePart === 'customer' ||
+      routePart.startsWith('customer/') ||
+      routePart.startsWith('customer?') ||
+      routePart.startsWith('customer-') ||
+      routePart.startsWith('customer-review');
+
+    if (isCustomer) {
+      if (routePart.startsWith('join/')) {
+        const extracted = routePart.replace('join/', '').split('?')[0];
+        if (extracted) token = extracted;
+        tab = 'landing';
+      } else if (routePart === 'join' || routePart.startsWith('join?')) {
+        tab = 'landing';
+      } else if (routePart.startsWith('customer-review/')) {
+        const extracted = routePart.replace('customer-review/', '').split('?')[0];
+        if (extracted) token = extracted;
+        tab = 'review';
+      } else if (routePart.startsWith('customer/review/')) {
+        const extracted = routePart.replace('customer/review/', '').split('?')[0];
+        if (extracted) token = extracted;
+        tab = 'review';
+      } else if (
+        routePart === 'customer-review' ||
+        routePart.startsWith('customer-review?') ||
+        routePart === 'customer/review' ||
+        routePart.startsWith('customer/review?')
+      ) {
+        tab = 'review';
+      } else if (routePart === 'customer/loyalty') {
+        tab = 'loyalty';
+      } else if (routePart === 'customer/rewards') {
+        tab = 'rewards';
+      } else if (routePart === 'customer/activity') {
+        tab = 'activity';
+      } else if (routePart === 'customer/profile') {
+        tab = 'profile';
+      } else if (routePart === 'customer' || routePart.startsWith('customer?')) {
+        tab = 'landing';
+      }
+
+      if (token) {
+        try {
+          sessionStorage.setItem('reployty_active_qr', token);
+        } catch {
+          // Ignore storage issues
+        }
+      } else {
+        try {
+          token = sessionStorage.getItem('reployty_active_qr') || '';
+        } catch {
+          // Ignore
+        }
+      }
+
+      return { isCustomer: true, qrToken: token, tab };
+    }
+
+    return { isCustomer: false, qrToken: '', tab: 'home' as const };
+  }, []);
+
   const [customerRoute, setCustomerRoute] = useState<{
     isCustomer: boolean;
     qrToken: string;
-    tab: 'home' | 'loyalty' | 'rewards' | 'activity' | 'profile';
-  }>({
-    isCustomer: false,
-    qrToken: 'bean-stand-01',
-    tab: 'home',
-  });
+    tab: 'home' | 'loyalty' | 'rewards' | 'activity' | 'profile' | 'landing' | 'review';
+  }>(() => resolveCustomerRoute());
 
-  // Synchronize with URL hash if present
+  // Synchronize with URL hash & pathname if present
   useEffect(() => {
     const handleHashChange = () => {
-      const rawHash = window.location.hash.replace('#', '');
+      const custState = resolveCustomerRoute();
+      if (custState.isCustomer) {
+        setPublicView('none');
+        setCustomerRoute(custState);
+        return;
+      } else {
+        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
+      }
+
+      const rawHash = window.location.hash.replace(/^#\/?/, '');
       const [routePart, queryPart] = rawHash.split('?');
 
-      // Check Public Client Onboarding & Invitation routes (no auth required)
+      // Check Public Client Onboarding, Tracking & Invitation routes (no auth required)
       if (rawHash === 'get-started' || rawHash.startsWith('get-started?')) {
         setPublicView('get-started');
-        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
         return;
       } else if (rawHash === 'setup-password' || rawHash.startsWith('setup-password?') || rawHash.startsWith('setup-password')) {
         setPublicView('setup-password');
-        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
+        return;
+      } else if (
+        rawHash === 'application-status' ||
+        rawHash.startsWith('application-status?') ||
+        rawHash === 'track-application' ||
+        rawHash.startsWith('track-application?')
+      ) {
+        const queryParams = new URLSearchParams(queryPart || '');
+        setTrackingParams({
+          ref: queryParams.get('ref') || queryParams.get('app') || '',
+          email: queryParams.get('email') || '',
+        });
+        setPublicView('application-status');
         return;
       } else {
         setPublicView('none');
-      }
-
-      // Check Customer PWA routes (strictly separate from business CRM 'customers' and 'business-customers')
-      const isCustomerRoute =
-        rawHash.startsWith('join') ||
-        rawHash === 'customer' ||
-        rawHash.startsWith('customer/') ||
-        rawHash.startsWith('customer?');
-
-      if (isCustomerRoute) {
-        let token = 'bean-stand-01';
-        let tab: 'home' | 'loyalty' | 'rewards' | 'activity' | 'profile' = 'home';
-        if (rawHash.startsWith('join/')) {
-          token = rawHash.replace('join/', '').split('?')[0] || 'bean-stand-01';
-        } else if (rawHash === 'customer/loyalty') {
-          tab = 'loyalty';
-        } else if (rawHash === 'customer/rewards') {
-          tab = 'rewards';
-        } else if (rawHash === 'customer/activity') {
-          tab = 'activity';
-        } else if (rawHash === 'customer/profile') {
-          tab = 'profile';
-        }
-        setCustomerRoute({ isCustomer: true, qrToken: token, tab });
-        return;
-      } else {
-        setCustomerRoute(prev => (prev.isCustomer ? { ...prev, isCustomer: false } : prev));
       }
 
       const hash = routePart as AppRoute;
@@ -126,6 +198,7 @@ export const AppContent: React.FC = () => {
         'customers',
         'business-customers',
         'loyalty',
+        'terminal',
         'rewards',
         'offers',
         'menu',
@@ -167,8 +240,27 @@ export const AppContent: React.FC = () => {
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, [resolveCustomerRoute]);
+
+  // Direct Super Admin routing: Automatically route Super Admin to admin-overview on login or root/dashboard load
+  const hasAutoNavigatedSuperAdminRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.isSuperAdmin && !hasAutoNavigatedSuperAdminRef.current) {
+      hasAutoNavigatedSuperAdminRef.current = true;
+      const rawHash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+      if (!rawHash || rawHash === 'dashboard') {
+        setCurrentRoute('admin-overview');
+        window.location.hash = 'admin-overview';
+      }
+    } else if (!isAuthenticated) {
+      hasAutoNavigatedSuperAdminRef.current = false;
+    }
+  }, [isLoading, isAuthenticated, user?.isSuperAdmin]);
 
   const handleRouteChange = (route: AppRoute, params?: { id?: string }) => {
     if (params?.id) {
@@ -252,6 +344,25 @@ export const AppContent: React.FC = () => {
         onComplete={() => {
           window.location.hash = 'onboarding';
           setPublicView('none');
+        }}
+      />
+    );
+  }
+
+  if (publicView === 'application-status') {
+    return (
+      <ApplicationTrackingView
+        initialRef={trackingParams.ref}
+        initialEmail={trackingParams.email}
+        onNavigateLogin={() => {
+          window.location.hash = '';
+          setPublicView('none');
+          setAuthView('login');
+        }}
+        onNavigateDashboard={() => {
+          window.location.hash = 'dashboard';
+          setPublicView('none');
+          handleRouteChange('dashboard');
         }}
       />
     );
@@ -397,6 +508,7 @@ export const AppContent: React.FC = () => {
       <AdminAppShell
         currentRoute={currentRoute as SuperAdminRoute}
         onRouteChange={(route) => handleRouteChange(route)}
+        onExitToBusiness={() => handleRouteChange('dashboard')}
       >
         {renderSuperAdminView()}
       </AdminAppShell>
@@ -430,6 +542,7 @@ export const AppContent: React.FC = () => {
       case 'billing':
         return <BusinessBillingView onNavigate={handleRouteChange as any} />;
       case 'loyalty':
+      case 'terminal':
         return <BusinessLoyaltyView />;
       case 'rewards':
         return <BusinessRewardsView />;

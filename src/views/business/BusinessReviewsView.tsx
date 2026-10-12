@@ -76,9 +76,10 @@ export const BusinessReviewsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
+    <div className="business-view-container" style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
       {/* Top Page Header */}
       <div
+        className="business-view-header"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
